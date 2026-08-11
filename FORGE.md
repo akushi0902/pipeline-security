@@ -56,3 +56,10 @@
 - **Files:** 15 (+1599/-20)
 - **Duration:** 622ss
 - **Approach:** Implemented structural audit immutability and completeness enforcement. Migration 0005 adds actor_user_id, actor_reference, workspace_id, source_ip_masked, user_agent_hash columns to audit_event, installs BEFORE UPDATE OR DELETE triggers (PostgreSQL PL/pgSQL RAISE EXCEPTION + SQLite RAISE(ABORT)) as defence against grant drift, adds query indexes, and adds a partial index on pipeline_definition for the purge worker. ContentGuard runs in reject mode — scans change_detail for secret patterns (GitHub PAT, AWS key, JWT, PEM, key=value, high-entropy) and raises AuditContentViolation with field path but never the value; oversized payloads are truncated with _truncated marker. AuditWriter is the single write path that runs the content guard and appends through AuditRepository. AuditRepository gained cursor-paginated list_scoped with workspace scoping and full filter support. AuditRouter exposes GET /api/v1/audit-events guarded by audit:read (devsecops_engineer, appsec_lead); no mutating endpoints exist, verified by OpenAPI spec test. Tests cover all patterns, nested scanning, entropy detection, truncation, immutability triggers, single-writer static analysis, repository surface, router authorization, and completeness registry.
+
+## WO-045: User Story: WO-045 - Build Seeded Benchmark Corpus With Ground-Truth Manifest
+- **Status:** completed
+- **Commit:** `85c649e`
+- **Files:** 16 (+0/-0)
+- **Duration:** 766ss
+- **Approach:** N/A
