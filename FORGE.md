@@ -196,3 +196,10 @@
 - **Files:** 5 (+0/-0)
 - **Duration:** 558ss
 - **Approach:** Created pipelineshield/analysis/coverage/ package implementing a pure, stateless ControlEvaluator. The evaluator groups rule outcomes by control_id, applies an explicit 6-step state derivation policy (present/partial/missing/not_assessable) with documented precedence rules (resolved evidence dominates not_assessable), computes assessable_weight_total as the scoring denominator, maps IR UnresolvedFragment kinds to ExclusionReason enum values, deduplicates fragments by fragment_id (kind:locator), conditionally produces a BannerPayload, and emits metrics. Completeness and bounds invariants are asserted before returning.
+
+## WO-019: User Story: WO-019 - Seeded Corpus Detection Benchmark Harness With Release Gate
+- **Status:** completed
+- **Commit:** `3d2d288`
+- **Files:** 9 (+1569/-1)
+- **Duration:** 925ss
+- **Approach:** N/A

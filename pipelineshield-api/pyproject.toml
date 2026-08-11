@@ -47,6 +47,10 @@ exclude = ["alembic/"]
 asyncio_mode = "auto"
 testpaths = ["tests"]
 filterwarnings = ["error"]
+markers = [
+    "benchmark: seeded corpus detection benchmark (excluded from default fast run)",
+]
+addopts = "-m 'not benchmark'"
 
 [tool.coverage.run]
 source = ["src"]
