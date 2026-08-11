@@ -49,3 +49,10 @@
 - **Files:** 24 (+0/-0)
 - **Duration:** 941ss
 - **Approach:** Authored 15 fully synthetic pipeline definitions (6 GitHub Actions, 5 GitLab CI, 4 Jenkins) in insecure/partial/hardened/not-assessable variants. Created a new GroundTruthManifest Pydantic v2 schema in ground_truth.py with SeededGap (expected_status, rationale), NegativeExpectation (for false-positive measurement), and UnassessableFragment models. Wrote a top-level ground_truth.yaml covering all 15 files with 57 seeded gaps, 48 negative expectations, and 3 NA fragments. Updated tests/fixtures/__init__.py with cached load_ground_truth() and load_corpus() helpers. All credential-shaped literals use the EXAMPLE_ prefix; all files are under 500 lines.
+
+## WO-046: User Story: WO-046 - Detection Rate Benchmark Harness With Per-Format Gates
+- **Status:** completed
+- **Commit:** `82a9f36`
+- **Files:** 12 (+0/-0)
+- **Duration:** 710ss
+- **Approach:** N/A
