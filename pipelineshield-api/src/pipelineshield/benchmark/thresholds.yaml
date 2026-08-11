@@ -28,3 +28,7 @@ format_min_detection:
   jenkins: 0.60
 
 max_unanchored_findings: 0
+
+# WO-046: maximum false positive count across the corpus
+# A false positive is a produced finding that does not match any seeded gap.
+max_false_positives: 20

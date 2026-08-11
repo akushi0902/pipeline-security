@@ -632,6 +632,28 @@ def _run_analysis(
     return _validate_anchors(raw, lines)
 
 
+def analyse_lines(
+    lines: list[str],
+    fmt: PipelineFormat,
+) -> tuple[list[ValidatedFinding], SuppressionReport]:
+    """Public entry point for single-pass deterministic analysis.
+
+    Suitable for callers that hold the file lines directly (e.g. the WO-046
+    detection gate) rather than a per-case corpus directory layout.
+
+    Args:
+        lines: Source lines (CRLF normalised, newlines stripped).
+        fmt:   Detected pipeline format.
+
+    Returns:
+        Tuple of ``(validated_findings, suppression_report)``.
+    """
+    raw: list[RawFinding] = []
+    raw.extend(_apply_line_rules(lines, fmt))
+    raw.extend(_apply_absence_rules(lines, fmt))
+    return _validate_anchors(raw, lines)
+
+
 def run_case(
     case_dir: Path,
     manifest: CaseManifest,
