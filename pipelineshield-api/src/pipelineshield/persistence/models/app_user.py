@@ -19,8 +19,11 @@ class AppUser(Base):
     """Application user account.
 
     Represents a real person authenticated via the enterprise IdP.  The
-    sub_claim is the IdP subject claim (opaque string) and is the stable
+    idp_subject is the IdP ``sub`` claim (opaque string) and is the stable
     identifier used to correlate identity across sessions.
+
+    INVARIANT: no password column, password hash, or credential reset flow
+    may ever be added.  Credential handling is entirely the IdP's responsibility.
 
     Deletion semantics: hard delete only.
     """
@@ -43,7 +46,17 @@ class AppUser(Base):
     sub_claim: Mapped[str] = mapped_column(
         String(255),
         nullable=False,
-        comment="IdP subject claim (opaque); stable user identifier.",
+        comment="Legacy IdP subject claim field; superseded by idp_subject.",
+    )
+    idp_subject: Mapped[str | None] = mapped_column(
+        String(255),
+        nullable=True,
+        unique=True,
+        index=True,
+        comment=(
+            "IdP subject claim (opaque, unique per user).  "
+            "INVARIANT: no password column may ever be added."
+        ),
     )
     email: Mapped[str] = mapped_column(
         String(320),
@@ -54,6 +67,11 @@ class AppUser(Base):
         String(255),
         nullable=False,
         comment="Display name from IdP claims.",
+    )
+    last_login_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True),
+        nullable=True,
+        comment="Timestamp of the most recent successful OIDC login (UTC).",
     )
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
