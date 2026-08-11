@@ -10,15 +10,19 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from pipelineshield.api.v1.schemas.analysis import PipelineFormat
+
+if TYPE_CHECKING:
+    from pipelineshield.analysis.ir.pipeline_ir import PipelineIR
 
 __all__ = [
     "NormalizationResult",
     "Normalizer",
     "PassthroughNormalizer",
     "NormalizerRegistry",
+    "create_default_registry",
 ]
 
 
@@ -27,6 +31,7 @@ class NormalizationResult:
     """Result of a single normalisation pass."""
     normalized_content: str
     coverage_report: dict[str, Any] = field(default_factory=dict)
+    pipeline_ir: PipelineIR | None = None
 
 
 class Normalizer(ABC):
@@ -75,3 +80,19 @@ class NormalizerRegistry:
     def normalize(self, content: str, fmt: PipelineFormat) -> NormalizationResult:
         """Convenience: look up the normalizer for *fmt* and run it."""
         return self.get_normalizer(fmt).normalize(content)
+
+
+def create_default_registry() -> NormalizerRegistry:
+    """Return a NormalizerRegistry pre-loaded with all built-in normalizers.
+
+    Importing happens here (not at module top-level) to prevent circular
+    import chains when only NormalizationResult or Normalizer are needed.
+    """
+    # Import is deferred intentionally — see module docstring
+    from pipelineshield.analysis.normalizers.github_actions import (  # noqa: PLC0415
+        GitHubActionsNormalizer,
+    )
+
+    registry = NormalizerRegistry()
+    registry.register(PipelineFormat.github_actions, GitHubActionsNormalizer())
+    return registry

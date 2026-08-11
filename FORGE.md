@@ -133,3 +133,10 @@
 - **Files:** 30 (+1920/-8)
 - **Duration:** 961ss
 - **Approach:** N/A
+
+## WO-006: User Story: WO-006 - Versioned PipelineIR contract and GitHub Actions normalizer
+- **Status:** completed
+- **Commit:** `d277293`
+- **Files:** 25 (+3022/-1)
+- **Duration:** 1148ss
+- **Approach:** Implemented the versioned PipelineIR contract and GitHub Actions normalizer. Core IR models (Anchor, ActionRef, SecretRef, Step, EffectivePermissions, Job, CoverageReport, PipelineIR) are frozen Pydantic v2 models in analysis/ir/pipeline_ir.py. The YAML loader uses ruamel.yaml in round-trip YAML 1.2 mode (y.version=(1,2)) to prevent YAML 1.1 boolean coercions (on: → True, NO → False) that would corrupt trigger analysis, plus a MAX_ALIASES=100 pre-check guard against anchor bombs. The GitHubActionsNormalizer handles scalar/list/mapping trigger forms, absent/empty/write_all/explicit permissions states, job steps with action ref parsing (sha/tag/branch/local/docker pin forms), secret ref extraction from ${{secrets.*}} and ${{env.*}} expressions, static matrix extraction, and marks composite/reusable workflow references as UnresolvedFragment (Not Assessable). Accessor helpers in accessors.py enforce the rule that security rules never access raw IR dict fields. NormalizationResult gained a pipeline_ir field and create_default_registry() factory pre-registers GitHubActionsNormalizer. Golden-file tests compare anchor-stripped IR dumps against expected/*.json; REGEN_GOLDEN=1 regenerates them.
