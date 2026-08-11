@@ -8,7 +8,7 @@ from __future__ import annotations
 import uuid
 from datetime import datetime
 
-from sqlalchemy import DateTime, String, Text, func
+from sqlalchemy import CheckConstraint, DateTime, String, Text, func
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -27,6 +27,12 @@ class PurgeReceipt(Base):
     """
 
     __tablename__ = "purge_receipt"
+    __table_args__ = (
+        CheckConstraint(
+            "status IN ('succeeded', 'failed', 'partial')",
+            name="ck_purge_receipt_status",
+        ),
+    )
 
     id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True),
@@ -63,6 +69,23 @@ class PurgeReceipt(Base):
         comment=(
             "Cryptographic digest of the batch manifest used to verify "
             "the purge was complete (e.g. SHA-256 hex)."
+        ),
+    )
+    status: Mapped[str] = mapped_column(
+        String(16),
+        nullable=False,
+        server_default="succeeded",
+        comment=(
+            "Purge batch outcome: 'succeeded', 'failed', or 'partial'. "
+            "Checked at the database level via ck_purge_receipt_status."
+        ),
+    )
+    error_detail: Mapped[str | None] = mapped_column(
+        Text,
+        nullable=True,
+        comment=(
+            "Non-sensitive error description when status != succeeded. "
+            "Must not contain row content or secret values."
         ),
     )
     created_at: Mapped[datetime] = mapped_column(

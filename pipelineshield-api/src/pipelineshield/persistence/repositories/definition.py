@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import uuid
 from abc import ABC, abstractmethod
+from datetime import datetime, timedelta, timezone
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -79,6 +80,12 @@ class SQLAlchemyDefinitionRepository(DefinitionRepository):
     ) -> PipelineDefinition:
         definition.masked_content = self._key_provider.encrypt(plaintext_content)
         definition.key_id = self._key_provider.key_id
+        # Set purge_due_at to 90 days from now unless already set by the caller.
+        if definition.purge_due_at is None:
+            definition.purge_due_at = datetime.now(tz=timezone.utc) + timedelta(days=90)
+        # Samples are never purged; override retention_class accordingly.
+        if definition.is_sample:
+            definition.retention_class = "sample"
         self._session.add(definition)
         self._session.flush()
         return definition

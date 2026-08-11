@@ -98,6 +98,26 @@ class PipelineDefinition(Base):
             "from all posture aggregate and rollup calculations."
         ),
     )
+    purge_due_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True),
+        nullable=True,
+        index=True,
+        comment=(
+            "Timestamp when this definition becomes eligible for hard deletion.  "
+            "Null until set by the application layer.  "
+            "Defaults to created_at + 90 days when the record is committed."
+        ),
+    )
+    retention_class: Mapped[str] = mapped_column(
+        String(64),
+        nullable=False,
+        server_default="confidential_90d",
+        comment=(
+            "Retention class governing the purge schedule.  "
+            "'confidential_90d': hard-delete 90 days after upload.  "
+            "'sample': excluded from purge (is_sample=True rows)."
+        ),
+    )
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         nullable=False,
