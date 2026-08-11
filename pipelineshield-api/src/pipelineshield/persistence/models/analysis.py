@@ -104,6 +104,14 @@ class Analysis(Base):
             "(model timeout), failed."
         ),
     )
+    duration_ms: Mapped[int | None] = mapped_column(
+        Integer,
+        nullable=True,
+        comment=(
+            "Wall-clock milliseconds from analysis start to completion. "
+            "Null for analyses created before migration 0006."
+        ),
+    )
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         nullable=False,

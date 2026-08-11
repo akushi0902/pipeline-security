@@ -56,3 +56,10 @@
 - **Files:** 12 (+0/-0)
 - **Duration:** 710ss
 - **Approach:** N/A
+
+## WO-044: User Story: WO-044 - Pilot Sign-Off Records And GA Gate Status View
+- **Status:** completed
+- **Commit:** `574c918`
+- **Files:** 15 (+2083/-1)
+- **Duration:** 752ss
+- **Approach:** N/A

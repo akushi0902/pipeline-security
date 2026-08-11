@@ -21,6 +21,8 @@ class Capability(str, enum.Enum):
     DEFINITION_READ = "definition:read"
     DEFINITION_CREATE = "definition:create"
     REMEDIATION_READ = "remediation:read"
+    PILOT_SIGNOFF_WRITE = "pilot_signoff:write"
+    GA_GATE_READ = "ga_gate:read"
 
 
 # Mapping from persona label → set of capabilities.
@@ -35,6 +37,8 @@ PERSONA_CAPABILITIES: dict[str, frozenset[Capability]] = {
             Capability.DEFINITION_READ,
             Capability.DEFINITION_CREATE,
             Capability.REMEDIATION_READ,
+            Capability.PILOT_SIGNOFF_WRITE,
+            Capability.GA_GATE_READ,
         }
     ),
     "appsec_lead": frozenset(
@@ -45,6 +49,8 @@ PERSONA_CAPABILITIES: dict[str, frozenset[Capability]] = {
             Capability.ANALYSIS_CREATE,
             Capability.DEFINITION_READ,
             Capability.REMEDIATION_READ,
+            Capability.PILOT_SIGNOFF_WRITE,
+            Capability.GA_GATE_READ,
         }
     ),
     "devops_engineer": frozenset(

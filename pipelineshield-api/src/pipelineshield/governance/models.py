@@ -161,6 +161,79 @@ class ExportHistoryListResponse(BaseModel):
 
 
 # ---------------------------------------------------------------------------
+# Pilot sign-off
+# ---------------------------------------------------------------------------
+
+
+class PilotSignoffCreateRequest(BaseModel):
+    """POST /governance/pilot-signoffs request body."""
+
+    workspace_id: uuid.UUID
+    decision: str = Field(..., pattern="^(approved|rejected|pending)$")
+    accuracy_actionability_rating: int | None = Field(
+        None, ge=1, le=5, description="Rating 1–5; required for approved/rejected."
+    )
+    personas_covered: list[str] = Field(default_factory=list)
+    comments: str | None = None
+
+    @model_validator(mode="after")
+    def _require_rating_for_decided(self) -> "PilotSignoffCreateRequest":
+        if self.decision in ("approved", "rejected") and self.accuracy_actionability_rating is None:
+            raise ValueError(
+                "accuracy_actionability_rating is required when decision is "
+                f"'{self.decision}'."
+            )
+        return self
+
+
+class PilotSignoffResponse(BaseModel):
+    """Single pilot sign-off record."""
+
+    id: uuid.UUID
+    workspace_id: uuid.UUID
+    reviewer_user_id: uuid.UUID
+    decision: str
+    accuracy_actionability_rating: int | None = None
+    personas_covered: list[str] = Field(default_factory=list)
+    comments: str | None = None
+    recorded_at: datetime
+
+
+class PilotSignoffListResponse(BaseModel):
+    """GET /governance/pilot-signoffs response."""
+
+    items: list[PilotSignoffResponse]
+    next_cursor: str | None = None
+    has_more: bool = False
+
+
+# ---------------------------------------------------------------------------
+# GA Gate
+# ---------------------------------------------------------------------------
+
+
+class ThresholdResultResponse(BaseModel):
+    """Single GA gate threshold evaluation result."""
+
+    key: str
+    label: str
+    target: Any
+    comparator: str
+    current: Any
+    status: str  # "pass" | "fail" | "insufficient_data"
+    source: str
+
+
+class GaGateResponse(BaseModel):
+    """GET /governance/ga-gate response."""
+
+    overall_status: str  # "pass" | "fail"
+    evaluated_at: datetime
+    thresholds: list[ThresholdResultResponse]
+    failing: list[str] = Field(default_factory=list)
+
+
+# ---------------------------------------------------------------------------
 # Error
 # ---------------------------------------------------------------------------
 
