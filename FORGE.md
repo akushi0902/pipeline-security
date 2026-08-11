@@ -266,3 +266,17 @@
 - **Files:** 2 (+134/-0)
 - **Duration:** 177ss
 - **Approach:** N/A
+
+## WO-025: User Story: WO-025 - Build finding detail view with anchored evidence and remediation
+- **Status:** completed
+- **Commit:** `27a94dd`
+- **Files:** 2 (+0/-0)
+- **Duration:** 168ss
+- **Approach:** N/A
+
+## WO-027: User Story: WO-027 - Hardened draft configuration generator with review labelling
+- **Status:** completed
+- **Commit:** `286e1c2`
+- **Files:** 0 (+0/-0)
+- **Duration:** 139ss
+- **Approach:** N/A
