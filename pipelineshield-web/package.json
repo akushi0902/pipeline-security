@@ -9,7 +9,9 @@
     "preview": "vite preview",
     "test": "vitest run",
     "test:watch": "vitest",
-    "lint": "tsc --noEmit"
+    "lint": "tsc --noEmit",
+    "generate:types": "npx openapi-typescript /api/v1/openapi.json -o src/api/generated/ingestion.ts",
+    "check:types-drift": "npm run generate:types && git diff --exit-code src/api/generated/"
   },
   "dependencies": {
     "@radix-ui/react-dialog": "^1.1.1",
