@@ -16,15 +16,23 @@ from fastapi import APIRouter, Depends, Form, HTTPException, Request, UploadFile
 from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session
 
+import uuid
+
+from pipelineshield.analysis.format_detector import CONFIDENCE_THRESHOLD
 from pipelineshield.api.security.authz_guard import CurrentActor, require_capability
+from pipelineshield.api.security.scope import ResourceNotVisibleError
 from pipelineshield.api.v1.schemas.analysis import (
     AnalysisResponse,
+    FormatConfirmationRequest,
+    FormatConfirmationResponse,
     IngestionErrorResponse,
     PAYLOAD_MAX_BYTES,
     PasteAnalysisRequest,
     PipelineFormat,
 )
 from pipelineshield.crypto.key_provider import EnvKeyProvider
+from pipelineshield.persistence.repositories.analysis import SQLAlchemyAnalysisRepository
+from pipelineshield.platform.audit_writer import AuditWriter
 from pipelineshield.services.analysis_orchestrator import (
     AnalysisOrchestrator,
     EmptyContentError,
@@ -233,6 +241,118 @@ async def create_analysis(
                 "An unexpected error occurred. Please retry with the correlation id.",
             ),
         ) from exc
+
+
+# ---------------------------------------------------------------------------
+# POST /api/v1/analyses/{analysis_id}/format-confirmation
+# ---------------------------------------------------------------------------
+
+
+@router.post(
+    "/{analysis_id}/format-confirmation",
+    response_model=FormatConfirmationResponse,
+    status_code=status.HTTP_200_OK,
+    summary="Confirm the pipeline format for a low-confidence analysis",
+    responses={
+        400: {"model": IngestionErrorResponse},
+        401: {"model": IngestionErrorResponse},
+        404: {"model": IngestionErrorResponse},
+        409: {"model": IngestionErrorResponse},
+        422: {"model": IngestionErrorResponse},
+    },
+)
+async def confirm_format(
+    analysis_id: uuid.UUID,
+    body: FormatConfirmationRequest,
+    actor: Annotated[CurrentActor, Depends(require_capability("analysis:create"))],
+    session: Session = Depends(get_db),
+) -> FormatConfirmationResponse:
+    """Confirm the pipeline format for an analysis that required user input.
+
+    Ownership is enforced inside the repository query — non-owners receive
+    404 (not 403) so analysis existence is not disclosed.
+
+    Returns 409 if the analysis is already confirmed, 422 if confirmation
+    was not required (confidence >= 0.8 and no declared-format mismatch).
+    Writes exactly one ``format_confirmed`` audit event.
+    """
+    correlation_id = secrets.token_hex(16)
+
+    analysis_repo = SQLAlchemyAnalysisRepository(session)
+    analysis = analysis_repo.get_by_id_owner_scoped(
+        analysis_id=analysis_id,
+        owner_id=actor.user_id,
+        workspace_id=actor.workspace_id,
+    )
+    if analysis is None:
+        raise ResourceNotVisibleError(resource_type="analysis")
+
+    # 409 Conflict: already confirmed
+    if analysis.format_confirmed_by_user:
+        raise HTTPException(
+            status_code=409,
+            detail=_error_body(
+                correlation_id, 409, "Conflict",
+                "This analysis has already been format-confirmed. "
+                "Re-confirmation is not permitted.",
+                constraint="already_confirmed",
+            ),
+        )
+
+    # 422 Unprocessable: confirmation not required for this analysis
+    if analysis.format_confidence >= CONFIDENCE_THRESHOLD:
+        raise HTTPException(
+            status_code=422,
+            detail=_error_body(
+                correlation_id, 422, "Unprocessable",
+                f"Format confirmation is not required for this analysis "
+                f"(confidence={analysis.format_confidence:.3f} >= {CONFIDENCE_THRESHOLD}). "
+                "The detected format has already been applied.",
+                constraint="confirmation_not_required",
+            ),
+        )
+
+    previous_format = analysis.pipeline_format
+    confirmed_str = body.confirmed_format.value
+
+    # Persist the confirmation
+    analysis.confirmed_format = confirmed_str
+    analysis.format_confirmed_by_user = True
+    session.flush()
+
+    # Audit — exactly one event, no definition content
+    writer = AuditWriter(session)
+    writer.write(
+        actor_id=str(actor.user_id),
+        actor_persona=actor.persona,
+        actor_user_id=actor.user_id,
+        workspace_id=actor.workspace_id,
+        action="format_confirmed",
+        resource_type="analysis",
+        resource_id=str(analysis.id),
+        correlation_id=correlation_id,
+        change_detail={
+            "detected_format": previous_format,
+            "confirmed_format": confirmed_str,
+        },
+    )
+
+    _LOG.info(
+        "format_confirmed",
+        extra={
+            "analysis_id": str(analysis.id),
+            "correlation_id": correlation_id,
+            "detected_format": previous_format,
+            "confirmed_format": confirmed_str,
+            "actor_id": str(actor.user_id),
+        },
+    )
+
+    return FormatConfirmationResponse(
+        analysis_id=analysis.id,
+        confirmed_format=confirmed_str,
+        format_confirmed_by_user=True,
+    )
 
 
 # ---------------------------------------------------------------------------

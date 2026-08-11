@@ -24,6 +24,7 @@ from typing import Any
 
 from sqlalchemy.orm import Session
 
+from pipelineshield.analysis.format_detector import CONFIDENCE_THRESHOLD, detect
 from pipelineshield.analysis.redactor import redact
 from pipelineshield.api.security.authz_guard import CurrentActor
 from pipelineshield.api.v1.schemas.analysis import (
@@ -31,6 +32,7 @@ from pipelineshield.api.v1.schemas.analysis import (
     AnalysisResponse,
     PipelineFormat,
 )
+from pipelineshield.catalogue.schemas import CatalogueSnapshot
 from pipelineshield.crypto.key_provider import KeyProvider
 from pipelineshield.persistence.models.analysis import Analysis
 from pipelineshield.persistence.models.pipeline_definition import PipelineDefinition
@@ -38,10 +40,8 @@ from pipelineshield.persistence.repositories.analysis import SQLAlchemyAnalysisR
 from pipelineshield.persistence.repositories.catalogue import SQLAlchemyCatalogueRepository
 from pipelineshield.persistence.repositories.definition import SQLAlchemyDefinitionRepository
 from pipelineshield.platform.audit_writer import AuditWriter
-from pipelineshield.catalogue.schemas import CatalogueSnapshot
-from pipelineshield.services.format_detector import FormatDetector
-from pipelineshield.services.normalizer_registry import NormalizerRegistry
-from pipelineshield.services.scoring_engine import ControlOutcome, ScoringEngine
+from pipelineshield.services.normalizer_registry import NormalizerRegistry, NormalizationResult
+from pipelineshield.services.scoring_engine import ScoringEngine
 
 __all__ = [
     "AnalysisOrchestrator",
@@ -229,11 +229,9 @@ class AnalysisOrchestrator:
     def __init__(
         self,
         key_provider: KeyProvider,
-        format_detector: FormatDetector | None = None,
         normalizer_registry: NormalizerRegistry | None = None,
     ) -> None:
         self._key_provider = key_provider
-        self._detector = format_detector or FormatDetector()
         self._normalizer_registry = normalizer_registry or NormalizerRegistry()
 
     def ingest(
@@ -289,20 +287,35 @@ class AnalysisOrchestrator:
         # Stage 4: Detect format
         # ------------------------------------------------------------------
         t0 = time.monotonic()
-        detection = self._detector.detect(masked_text, filename=filename)
-        detected_format = detection.format
-        confidence = detection.confidence
-        format_confirmation_required = (
+        verdict = detect(masked_text, filename=filename)
+        detected_format_str = verdict.format  # string: "github_actions"|"gitlab_ci"|"jenkins"|"unknown"
+        confidence = verdict.confidence
+        # format_confirmation_required when:
+        #   (a) confidence is below the named threshold, OR
+        #   (b) the caller declared a format that differs from what was detected
+        format_confirmation_required = verdict.confirmation_required or (
             declared_format is not None
-            and declared_format != detected_format.value
+            and declared_format != detected_format_str
         )
         timings["format_detection_ms"] = (time.monotonic() - t0) * 1000
 
         # ------------------------------------------------------------------
         # Stage 5: Normalize (stub until WO-05/06/07)
+        # When format confirmation is required, skip normalizer dispatch.
         # ------------------------------------------------------------------
         t0 = time.monotonic()
-        norm_result = self._normalizer_registry.normalize(masked_text, detected_format)
+        if format_confirmation_required or detected_format_str == "unknown":
+            norm_result = NormalizationResult(
+                normalized_content=masked_text,
+                coverage_report={
+                    "note": "Format confirmation required; normalization deferred",
+                    "fragments": [],
+                    "not_assessable": [],
+                },
+            )
+        else:
+            effective_format = PipelineFormat(detected_format_str)
+            norm_result = self._normalizer_registry.normalize(masked_text, effective_format)
         timings["normalization_ms"] = (time.monotonic() - t0) * 1000
 
         # ------------------------------------------------------------------
@@ -334,7 +347,7 @@ class AnalysisOrchestrator:
             actor=actor,
             masked_text=norm_result.normalized_content,
             filename=filename,
-            detected_format=detected_format,
+            detected_format_str=detected_format_str,
             confidence=confidence,
             coverage_report=merged_coverage,
             correlation_id=correlation_id,
@@ -359,8 +372,9 @@ class AnalysisOrchestrator:
             resource_id=str(analysis.id),
             correlation_id=correlation_id,
             change_detail={
-                "detected_format": detected_format.value,
+                "detected_format": detected_format_str,
                 "format_confidence": round(confidence, 3),
+                "format_confirmation_required": format_confirmation_required,
                 "filename": filename,
                 "line_count": pipeline_def.line_count,
             },
@@ -372,7 +386,7 @@ class AnalysisOrchestrator:
             extra={
                 "analysis_id": str(analysis.id),
                 "correlation_id": correlation_id,
-                "detected_format": detected_format.value,
+                "detected_format": detected_format_str,
                 "timings_ms": timings,
             },
         )
@@ -383,7 +397,7 @@ class AnalysisOrchestrator:
             workspace_id=actor.workspace_id,
             catalogue_version_id=active_cat.id,
             created_at=analysis.created_at,
-            detected_format=detected_format.value,
+            detected_format=detected_format_str,
             format_confidence=confidence,
             format_confirmation_required=format_confirmation_required,
             coverage_report=merged_coverage,
@@ -422,7 +436,7 @@ class AnalysisOrchestrator:
         actor: CurrentActor,
         masked_text: str,
         filename: str | None,
-        detected_format: PipelineFormat,
+        detected_format_str: str,
         confidence: float,
         coverage_report: dict[str, Any],
         correlation_id: str,
@@ -454,7 +468,7 @@ class AnalysisOrchestrator:
             workspace_id=actor.workspace_id,
             owner_id=actor.user_id,
             catalogue_version_id=catalogue_version_id,
-            pipeline_format=detected_format.value,
+            pipeline_format=detected_format_str,
             format_confidence=confidence,
             score=score,
             grade=grade,

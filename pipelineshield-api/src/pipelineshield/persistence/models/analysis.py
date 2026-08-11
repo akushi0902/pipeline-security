@@ -8,7 +8,7 @@ from __future__ import annotations
 import uuid
 from datetime import datetime
 
-from sqlalchemy import DateTime, ForeignKey, Integer, Numeric, String, Text, func
+from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, Numeric, String, Text, func
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -94,6 +94,24 @@ class Analysis(Base):
         comment=(
             "Analysis lifecycle status: completed, degraded "
             "(model timeout), failed."
+        ),
+    )
+    confirmed_format: Mapped[str | None] = mapped_column(
+        String(64),
+        nullable=True,
+        comment=(
+            "User-confirmed pipeline format.  NULL = auto-detected. "
+            "Set via POST /api/v1/analyses/{id}/format-confirmation."
+        ),
+    )
+    format_confirmed_by_user: Mapped[bool] = mapped_column(
+        Boolean,
+        nullable=False,
+        default=False,
+        server_default="false",
+        comment=(
+            "True when the user explicitly confirmed the pipeline format. "
+            "Immutable once set."
         ),
     )
     created_at: Mapped[datetime] = mapped_column(

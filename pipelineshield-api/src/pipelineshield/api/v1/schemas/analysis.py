@@ -27,6 +27,8 @@ __all__ = [
     "PasteAnalysisRequest",
     "AnalysisResponse",
     "AnalysisSummaryResponse",
+    "FormatConfirmationRequest",
+    "FormatConfirmationResponse",
     "IngestionErrorResponse",
     "PAYLOAD_MAX_BYTES",
     "ADVISORY_DISCLAIMER",
@@ -135,6 +137,33 @@ class AnalysisSummaryResponse(BaseModel):
     detected_format: str
     score: int
     grade: str
+
+
+# ---------------------------------------------------------------------------
+# Error response (RFC 7807)
+# ---------------------------------------------------------------------------
+
+
+class FormatConfirmationRequest(BaseModel):
+    """Request body for POST /api/v1/analyses/{id}/format-confirmation."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    confirmed_format: PipelineFormat = Field(
+        ...,
+        description=(
+            "The user-confirmed pipeline format. "
+            "Must be one of: github_actions, gitlab_ci, jenkins."
+        ),
+    )
+
+
+class FormatConfirmationResponse(BaseModel):
+    """200 response for a successful format confirmation."""
+
+    analysis_id: uuid.UUID
+    confirmed_format: str
+    format_confirmed_by_user: bool
 
 
 # ---------------------------------------------------------------------------

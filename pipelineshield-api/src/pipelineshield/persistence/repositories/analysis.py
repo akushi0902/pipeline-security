@@ -63,6 +63,20 @@ class AnalysisRepository(ABC):
         """
 
     @abstractmethod
+    def get_by_id_owner_scoped(
+        self,
+        analysis_id: uuid.UUID,
+        owner_id: uuid.UUID,
+        workspace_id: uuid.UUID,
+    ) -> Analysis | None:
+        """Return the analysis only if it belongs to *owner_id* in *workspace_id*.
+
+        Returns None when the analysis does not exist or is not owned by the
+        given actor.  Callers MUST return 404 (not 403) so existence is not
+        disclosed to non-owners.
+        """
+
+    @abstractmethod
     def add(self, analysis: Analysis) -> Analysis:
         """Persist a new Analysis and return the managed instance."""
 
@@ -153,6 +167,25 @@ class SQLAlchemyAnalysisRepository(AnalysisRepository):
             stmt = stmt.where(Analysis.owner_id == actor_scope.actor_id)
         stmt = stmt.order_by(Analysis.created_at.desc()).limit(limit).offset(offset)
         return self._session.execute(stmt).scalars().all()
+
+    def get_by_id_owner_scoped(
+        self,
+        analysis_id: uuid.UUID,
+        owner_id: uuid.UUID,
+        workspace_id: uuid.UUID,
+    ) -> Analysis | None:
+        """Return analysis only if owned by *owner_id* in *workspace_id*.
+
+        All three constraints are applied in a single SQL predicate — no
+        post-fetch filtering — so the DB never reveals whether the row exists
+        to a non-owner.
+        """
+        stmt = select(Analysis).where(
+            Analysis.id == analysis_id,
+            Analysis.owner_id == owner_id,
+            Analysis.workspace_id == workspace_id,
+        )
+        return self._session.execute(stmt).scalar_one_or_none()
 
     def add(self, analysis: Analysis) -> Analysis:
         self._session.add(analysis)
