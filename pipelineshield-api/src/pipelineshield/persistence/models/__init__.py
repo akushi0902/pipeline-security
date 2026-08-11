@@ -21,6 +21,8 @@ from .audit_event import AuditEvent
 from .purge_receipt import PurgeReceipt
 from .control_catalogue_version import ControlCatalogueVersion
 from .sample_pipeline import SamplePipeline
+from .workspace_score_rollup import WorkspaceScoreRollup
+from .category_gap_rollup import CategoryGapRollup
 
 __all__ = [
     "Base",
@@ -37,4 +39,6 @@ __all__ = [
     "PurgeReceipt",
     "ControlCatalogueVersion",
     "SamplePipeline",
+    "WorkspaceScoreRollup",
+    "CategoryGapRollup",
 ]

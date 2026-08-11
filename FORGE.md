@@ -21,3 +21,10 @@
 - **Files:** 20 (+1816/-58)
 - **Duration:** 1199ss
 - **Approach:** Implemented the versioned immutable control catalogue as an append-only SQLAlchemy 2.0 model with a dialect-aware DialectJSON type (JSONB on PostgreSQL, JSON on SQLite). Added a forward-only Alembic 0002 migration using batch_alter_table for cross-dialect compatibility that renames the scaffold columns (version_number→version, description→change_notes, controls→snapshot) and adds status, grade_bands, created_by (FK app_user), and content_checksum. Defined full Pydantic v2 CatalogueSnapshot schemas with model_validators for weight totals, unique IDs, severity enum, and grade band coverage 0-100. Implemented CatalogueRepository (abstract + SQLAlchemy) with get_active, get_by_version, list_versions, and create_version (INSERT-only, raises CatalogueVersionConflictError on duplicate). Added an idempotent seed routine that validates the committed catalogue_v1.json fixture before inserting.
+
+## WO-030: User Story: WO-030 - Enterprise DevSecOps posture dashboard with pre-aggregated queries
+- **Status:** completed
+- **Commit:** `590a04a`
+- **Files:** 17 (+495/-1)
+- **Duration:** 381ss
+- **Approach:** N/A
