@@ -21,6 +21,8 @@ from sqlalchemy import DateTime, String, func
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
+from pipelineshield.persistence.models.types import DialectJSON
+
 from .base import Base
 
 
@@ -29,23 +31,12 @@ class AuditEvent(Base):
 
     One record is written for every mutating operation in the system.
     The table is append-only at the database-role level: pipelineshield_app
-    can INSERT and SELECT but cannot UPDATE or DELETE.
+    can INSERT and SELECT but cannot UPDATE or DELETE.  A BEFORE UPDATE OR
+    DELETE trigger provides defence against future grant drift.
 
-    Columns:
-    - id: primary key
-    - actor_id: identifier of the user or service account performing the action
-    - actor_persona: persona label at the time of the action
-    - occurred_at: wall-clock timestamp of the event (UTC)
-    - resource_type: the type of resource affected (e.g. 'analysis', 'workspace')
-    - resource_id: the UUID of the affected resource
-    - action: the action performed (e.g. 'create', 'delete', 'auth_login')
-    - change_detail: JSONB structured detail.  MUST NOT contain definition
-      content or secret values — enforced by convention and code review.
-    - correlation_id: optional request correlation identifier for tracing.
+    change_detail MUST NEVER contain definition content or secret values.
 
-    Deletion semantics: NOT permitted (append-only).  No hard-delete path
-    exists for individual rows; the table is only dropped via the migration
-    downgrade in non-production environments.
+    Deletion semantics: NOT permitted (append-only).
     """
 
     __tablename__ = "audit_event"
@@ -61,10 +52,27 @@ class AuditEvent(Base):
         nullable=False,
         comment="Identifier of the user or service account performing the action.",
     )
+    actor_user_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True),
+        nullable=True,
+        index=True,
+        comment="FK to app_user.id — null for unauthenticated events.",
+    )
+    actor_reference: Mapped[str | None] = mapped_column(
+        String(255),
+        nullable=True,
+        comment="Masked actor reference for unauthenticated events.",
+    )
     actor_persona: Mapped[str | None] = mapped_column(
         String(64),
         nullable=True,
         comment="Persona label at the time of the action (null for system events).",
+    )
+    workspace_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True),
+        nullable=True,
+        index=True,
+        comment="Workspace context of the event.",
     )
     occurred_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
@@ -89,11 +97,11 @@ class AuditEvent(Base):
         comment="Action label (e.g. 'create', 'delete', 'auth_login_success').",
     )
     change_detail: Mapped[dict] = mapped_column(  # type: ignore[type-arg]
-        JSONB,
+        DialectJSON,
         nullable=False,
         default=dict,
         comment=(
-            "Structured event detail as JSONB.  "
+            "Structured event detail (JSONB on PostgreSQL, JSON on SQLite).  "
             "INVARIANT: MUST NOT contain definition content or secret values."
         ),
     )
@@ -101,6 +109,16 @@ class AuditEvent(Base):
         String(128),
         nullable=True,
         comment="Optional request correlation ID for distributed tracing.",
+    )
+    source_ip_masked: Mapped[str | None] = mapped_column(
+        String(64),
+        nullable=True,
+        comment="Source IP address, masked (last octet zeroed for IPv4).",
+    )
+    user_agent_hash: Mapped[str | None] = mapped_column(
+        String(64),
+        nullable=True,
+        comment="SHA-256 hex digest of the User-Agent header.",
     )
 
     def __repr__(self) -> str:

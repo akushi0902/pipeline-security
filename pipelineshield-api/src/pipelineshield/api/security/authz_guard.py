@@ -54,8 +54,8 @@ class CurrentActor:
 PERSONA_CAPABILITIES: dict[str, frozenset[str]] = {
     "app_developer": frozenset({"catalogue:read"}),
     "devops_engineer": frozenset({"catalogue:read"}),
-    "devsecops_engineer": frozenset({"catalogue:read", "catalogue:write"}),
-    "appsec_lead": frozenset({"catalogue:read", "catalogue:write"}),
+    "devsecops_engineer": frozenset({"catalogue:read", "catalogue:write", "audit:read"}),
+    "appsec_lead": frozenset({"catalogue:read", "catalogue:write", "audit:read"}),
     "engineering_manager": frozenset({"catalogue:read"}),
 }
 

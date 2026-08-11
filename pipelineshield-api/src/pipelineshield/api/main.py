@@ -7,6 +7,7 @@ from __future__ import annotations
 
 from fastapi import FastAPI
 
+from pipelineshield.api.v1.routers.audit_router import router as audit_router
 from pipelineshield.api.v1.routers.auth_router import router as auth_router
 from pipelineshield.api.v1.routers.catalogue_router import router as catalogue_router
 
@@ -21,6 +22,7 @@ def create_app() -> FastAPI:
 
     app.include_router(auth_router, prefix="/api/v1")
     app.include_router(catalogue_router, prefix="/api/v1")
+    app.include_router(audit_router, prefix="/api/v1")
 
     return app
 
