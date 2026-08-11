@@ -26,6 +26,7 @@ __all__ = [
     "PipelineFormat",
     "PasteAnalysisRequest",
     "AnalysisResponse",
+    "AnalysisSummaryResponse",
     "IngestionErrorResponse",
     "PAYLOAD_MAX_BYTES",
     "ADVISORY_DISCLAIMER",
@@ -112,6 +113,28 @@ class AnalysisResponse(BaseModel):
     format_confirmation_required: bool
     coverage_report: dict[str, Any]
     advisory_disclaimer: str
+
+
+# ---------------------------------------------------------------------------
+# Error response (RFC 7807)
+# ---------------------------------------------------------------------------
+
+
+class AnalysisSummaryResponse(BaseModel):
+    """Summary-scoped analysis response for the engineering_manager persona.
+
+    Omits per-finding evidence, definition excerpts, and coverage details.
+    Selected by the service layer when the actor's scope is analysis:read:summary;
+    never by conditional field stripping inside a router.
+    """
+
+    analysis_id: uuid.UUID
+    workspace_id: uuid.UUID
+    catalogue_version_id: uuid.UUID
+    created_at: datetime
+    detected_format: str
+    score: int
+    grade: str
 
 
 # ---------------------------------------------------------------------------

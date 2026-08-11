@@ -3,12 +3,15 @@ from __future__ import annotations
 
 import uuid
 from abc import ABC, abstractmethod
-from typing import Sequence
+from typing import TYPE_CHECKING, Sequence
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from ..models.finding import Finding
+
+if TYPE_CHECKING:
+    from pipelineshield.api.security.scope import ActorScope
 
 
 class FindingRepository(ABC):
@@ -32,6 +35,21 @@ class FindingRepository(ABC):
         source: str | None = None,
     ) -> Sequence[Finding]:
         """Return findings for *analysis_id*, optionally filtered by *source*."""
+
+    @abstractmethod
+    def list_scoped(
+        self,
+        actor_scope: "ActorScope",
+        *,
+        analysis_id: uuid.UUID | None = None,
+        limit: int = 50,
+        offset: int = 0,
+    ) -> Sequence[Finding]:
+        """Return findings visible to *actor_scope*.
+
+        Workspace scoping is applied in the SQL predicate.  Optionally further
+        filtered by analysis_id.  Post-fetch filtering is not permitted.
+        """
 
     @abstractmethod
     def add(self, finding: Finding) -> Finding:
@@ -75,6 +93,27 @@ class SQLAlchemyFindingRepository(FindingRepository):
         if source is not None:
             stmt = stmt.where(Finding.source == source)
         stmt = stmt.order_by(Finding.created_at)
+        return self._session.execute(stmt).scalars().all()
+
+    def list_scoped(
+        self,
+        actor_scope: "ActorScope",
+        *,
+        analysis_id: uuid.UUID | None = None,
+        limit: int = 50,
+        offset: int = 0,
+    ) -> Sequence[Finding]:
+        """Return findings visible to *actor_scope* via an in-predicate WHERE clause.
+
+        Row-level scoping: workspace_id IN (actor_scope.workspace_ids).
+        Optionally filtered by analysis_id for per-analysis views.
+        """
+        stmt = select(Finding).where(
+            Finding.workspace_id.in_(list(actor_scope.workspace_ids))
+        )
+        if analysis_id is not None:
+            stmt = stmt.where(Finding.analysis_id == analysis_id)
+        stmt = stmt.order_by(Finding.created_at).limit(limit).offset(offset)
         return self._session.execute(stmt).scalars().all()
 
     def add(self, finding: Finding) -> Finding:

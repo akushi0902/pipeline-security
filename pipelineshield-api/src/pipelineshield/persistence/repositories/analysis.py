@@ -3,12 +3,15 @@ from __future__ import annotations
 
 import uuid
 from abc import ABC, abstractmethod
-from typing import Sequence
+from typing import TYPE_CHECKING, Sequence
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from ..models.analysis import Analysis
+
+if TYPE_CHECKING:
+    from pipelineshield.api.security.scope import ActorScope
 
 
 class AnalysisRepository(ABC):
@@ -43,6 +46,21 @@ class AnalysisRepository(ABC):
         offset: int = 0,
     ) -> Sequence[Analysis]:
         """Return analyses owned by *owner_id* within *workspace_id*."""
+
+    @abstractmethod
+    def list_scoped(
+        self,
+        actor_scope: "ActorScope",
+        *,
+        limit: int = 50,
+        offset: int = 0,
+    ) -> Sequence[Analysis]:
+        """Return analyses visible to *actor_scope*.
+
+        The WHERE clause is built entirely inside this method — no post-fetch
+        filtering.  If ``actor_scope.read_all`` is True all rows in accessible
+        workspaces are returned; otherwise only rows owned by the actor.
+        """
 
     @abstractmethod
     def add(self, analysis: Analysis) -> Analysis:
@@ -107,6 +125,33 @@ class SQLAlchemyAnalysisRepository(AnalysisRepository):
             .limit(limit)
             .offset(offset)
         )
+        return self._session.execute(stmt).scalars().all()
+
+    def list_scoped(
+        self,
+        actor_scope: "ActorScope",
+        *,
+        limit: int = 50,
+        offset: int = 0,
+    ) -> Sequence[Analysis]:
+        """Return analyses visible to *actor_scope* via an in-predicate WHERE clause.
+
+        Row-level scoping is applied in the SQL predicate:
+        - workspace_id IN (actor_scope.workspace_ids)
+        - if not read_all: additionally filter owner_id = actor_scope.actor_id
+
+        This ensures a developer cannot see another developer's analyses even
+        if they share a workspace, and a manager gets the same rows as read:all
+        but the service layer shapes the response model.
+        """
+        from pipelineshield.api.security.scope import ActorScope as _ActorScope
+        stmt = (
+            select(Analysis)
+            .where(Analysis.workspace_id.in_(list(actor_scope.workspace_ids)))
+        )
+        if not actor_scope.read_all:
+            stmt = stmt.where(Analysis.owner_id == actor_scope.actor_id)
+        stmt = stmt.order_by(Analysis.created_at.desc()).limit(limit).offset(offset)
         return self._session.execute(stmt).scalars().all()
 
     def add(self, analysis: Analysis) -> Analysis:

@@ -35,6 +35,8 @@ __all__ = [
     "PERSONA_CAPABILITIES",
     "get_current_actor",
     "require_capability",
+    "AUTHZ_DENIAL_ALERT_THRESHOLD",
+    "_AUTHZ_DENIAL_COUNTERS",
 ]
 
 _LOG = logging.getLogger(__name__)
@@ -88,15 +90,53 @@ class CurrentActor:
 # ---------------------------------------------------------------------------
 
 PERSONA_CAPABILITIES: dict[str, frozenset[str]] = {
-    "app_developer": frozenset({"catalogue:read", "analysis:create"}),
-    "devops_engineer": frozenset({"catalogue:read", "analysis:create"}),
+    # app_developer: create and read own analyses; no cross-user or write access.
+    "app_developer": frozenset({
+        "catalogue:read",
+        "analysis:create",
+        "analysis:read:own",
+        "dashboard:read",
+    }),
+    # devops_engineer: read all analyses in workspace; can export; no catalogue write.
+    "devops_engineer": frozenset({
+        "catalogue:read",
+        "analysis:create",
+        "analysis:read:own",
+        "analysis:read:all",
+        "export:create",
+        "dashboard:read",
+    }),
+    # devsecops_engineer: full analysis + findings access; can write catalogue; reads audit.
     "devsecops_engineer": frozenset({
-        "catalogue:read", "catalogue:write", "audit:read", "analysis:create",
+        "catalogue:read",
+        "catalogue:write",
+        "audit:read",
+        "analysis:create",
+        "analysis:read:own",
+        "analysis:read:all",
+        "finding:read:all",
+        "export:create",
+        "dashboard:read",
     }),
+    # appsec_lead: same as devsecops + role management.
     "appsec_lead": frozenset({
-        "catalogue:read", "catalogue:write", "audit:read", "analysis:create",
+        "catalogue:read",
+        "catalogue:write",
+        "audit:read",
+        "analysis:create",
+        "analysis:read:own",
+        "analysis:read:all",
+        "finding:read:all",
+        "export:create",
+        "dashboard:read",
+        "admin:role:write",
     }),
-    "engineering_manager": frozenset({"catalogue:read"}),
+    # engineering_manager: summary-only read; no create, no catalogue write, no findings.
+    "engineering_manager": frozenset({
+        "catalogue:read",
+        "analysis:read:summary",
+        "dashboard:read",
+    }),
 }
 
 
@@ -168,9 +208,13 @@ def require_capability(capability: str) -> Callable[..., CurrentActor]:
                         f"Your persona ({actor.persona!r}) does not have "
                         f"the {capability!r} capability."
                     ),
+                    "required_capability": capability,
                     "errors": [],
                 },
             )
         return actor
 
+    # Expose the required capability on the guard so the route registry test
+    # can discover it without walking the full dependency graph.
+    _guard._required_capability = capability  # type: ignore[attr-defined]
     return _guard
