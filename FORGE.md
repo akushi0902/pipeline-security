@@ -105,3 +105,10 @@
 - **Files:** 13 (+0/-0)
 - **Duration:** 811ss
 - **Approach:** N/A
+
+## WO-012: User Story: WO-012 - Control Catalogue Admin Console UI
+- **Status:** completed
+- **Commit:** `e4717b6`
+- **Files:** 26 (+2710/-0)
+- **Duration:** 842ss
+- **Approach:** Created a greenfield pipelineshield-web React 18 + TypeScript 5 strict-mode SPA using Vite. Implemented a pure catalogueReducer with six actions (stageCategoryWeight, toggleCategoryEnabled, stageControlSeverity, stageReferenceTools, resetStaged, rebaseAfterConflict) and three selectors (selectEnabledWeightTotal, selectDiff, selectCanSubmit). Components use Radix UI primitives for Dialog, Switch, and Select. TanStack Query handles data fetching with retry-on-5xx policy. MSW 2.x node server provides offline mock handlers for all API scenarios. Accessibility achieved via aria-live for weight total, aria-describedby for inline field errors, and Radix Dialog's built-in focus trap and Escape dismissal.
