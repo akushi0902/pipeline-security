@@ -88,11 +88,15 @@ def create_default_registry() -> NormalizerRegistry:
     Importing happens here (not at module top-level) to prevent circular
     import chains when only NormalizationResult or Normalizer are needed.
     """
-    # Import is deferred intentionally — see module docstring
+    # Imports are deferred intentionally — see module docstring
     from pipelineshield.analysis.normalizers.github_actions import (  # noqa: PLC0415
         GitHubActionsNormalizer,
+    )
+    from pipelineshield.analysis.normalizers.gitlab_ci import (  # noqa: PLC0415
+        GitLabCINormalizer,
     )
 
     registry = NormalizerRegistry()
     registry.register(PipelineFormat.github_actions, GitHubActionsNormalizer())
+    registry.register(PipelineFormat.gitlab_ci, GitLabCINormalizer())
     return registry
