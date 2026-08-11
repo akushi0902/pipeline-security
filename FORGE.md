@@ -308,3 +308,10 @@
 - **Files:** 5 (+1095/-0)
 - **Duration:** 326ss
 - **Approach:** N/A
+
+## WO-028: User Story: WO-028 - Before-after diff and projected score API
+- **Status:** completed
+- **Commit:** `e6679fe`
+- **Files:** 2 (+0/-0)
+- **Duration:** 87ss
+- **Approach:** N/A
