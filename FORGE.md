@@ -63,3 +63,10 @@
 - **Files:** 16 (+0/-0)
 - **Duration:** 766ss
 - **Approach:** N/A
+
+## WO-003: User Story: WO-003 - Synchronous analysis ingestion endpoint with bounded payloads
+- **Status:** completed
+- **Commit:** `0b7ab1e`
+- **Files:** 1 (+0/-0)
+- **Duration:** 685ss
+- **Approach:** N/A
