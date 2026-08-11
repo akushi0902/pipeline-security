@@ -1,0 +1,38 @@
+# Ground truth for GitHub Actions insecure variant.
+# Seeded gaps represent common CI/CD security misconfigurations.
+# Expected lines verified against definition.yml.
+format: github_actions
+variant: insecure
+description: >
+  Pipeline with hardcoded secrets, unpinned actions, overly permissive
+  token permissions, and missing security controls.
+seeded_gaps:
+  - control_id: sh-001
+    expected_line: 16
+    severity: critical
+    description: Hardcoded API_KEY value in env block
+  - control_id: sci-001
+    expected_line: 11
+    severity: high
+    description: Unpinned actions/checkout action (tag reference instead of SHA)
+  - control_id: lp-001
+    expected_line: 9
+    severity: high
+    description: Overly permissive contents:write token permission
+  - control_id: sh-002
+    expected_line: 10
+    severity: high
+    description: No secrets scanning step (gitleaks/trufflehog absent)
+  - control_id: as-001
+    expected_line: 10
+    severity: high
+    description: No artifact signing step (cosign/sigstore absent)
+  - control_id: sbom-001
+    expected_line: 10
+    severity: medium
+    description: No SBOM generation step (syft/cyclonedx absent)
+  - control_id: ag-001
+    expected_line: 5
+    severity: high
+    description: No environment-based approval gate
+unassessable_fragments: []

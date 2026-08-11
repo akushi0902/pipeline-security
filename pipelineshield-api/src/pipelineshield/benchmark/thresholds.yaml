@@ -1,0 +1,30 @@
+# Benchmark quality-gate thresholds.
+#
+# These values are the source of truth for the release gate.
+# Tightening the bar is a config change here — no code changes required.
+# The CLI exits 1 (gate breach) when any threshold is violated.
+# The CLI exits 2 (harness fault) when manifests are invalid, corpus is empty,
+# or an exception escapes analysis of a case.
+#
+# Documented parameters:
+#   anchor_tolerance_lines   : ±N lines around expected_line for match rule
+#   deterministic_budget_ms  : p95 deterministic-path latency budget (ms)
+#   overall_min_detection    : minimum overall seeded-gap detection rate [0,1]
+#   format_min_detection     : per-format minimum detection rate [0,1]
+#     github_actions         : GitHub Actions format minimum
+#     gitlab_ci              : GitLab CI format minimum
+#     jenkins                : Jenkins format minimum (lower: scripted blocks)
+#   max_unanchored_findings  : zero-fabrication gate — must be 0
+
+anchor_tolerance_lines: 2
+
+deterministic_budget_ms: 2000
+
+overall_min_detection: 0.80
+
+format_min_detection:
+  github_actions: 0.80
+  gitlab_ci: 0.80
+  jenkins: 0.60
+
+max_unanchored_findings: 0

@@ -1,0 +1,32 @@
+# Ground truth for GitHub Actions partial variant.
+# Actions are now pinned to SHA; secrets scanning and SAST are present.
+# Remaining gaps: hardcoded secret, permissive permissions, no signing, no SBOM,
+# no approval gate.
+format: github_actions
+variant: partial
+description: >
+  Pipeline with secrets scanning and SAST added, actions pinned by SHA,
+  but still missing artifact signing, SBOM generation, approval gate,
+  and containing a hardcoded service token.
+seeded_gaps:
+  - control_id: sh-001
+    expected_line: 22
+    severity: critical
+    description: Hardcoded SERVICE_TOKEN in env block
+  - control_id: lp-001
+    expected_line: 17
+    severity: high
+    description: Overly permissive contents:write token permission in build job
+  - control_id: as-001
+    expected_line: 8
+    severity: high
+    description: No artifact signing step (cosign/sigstore absent)
+  - control_id: sbom-001
+    expected_line: 8
+    severity: medium
+    description: No SBOM generation step (syft/cyclonedx absent)
+  - control_id: ag-001
+    expected_line: 5
+    severity: high
+    description: No environment-based approval gate
+unassessable_fragments: []

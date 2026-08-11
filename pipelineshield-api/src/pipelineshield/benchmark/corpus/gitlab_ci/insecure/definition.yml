@@ -1,0 +1,20 @@
+stages:
+  - build
+  - deploy
+
+variables:
+  SECRET: hardcoded_secret_value_here
+  IMAGE: myregistry.example.com/myapp
+
+build-job:
+  stage: build
+  script:
+    - echo "Building..."
+    - docker build -t $IMAGE:$CI_COMMIT_SHA .
+    - docker push $IMAGE:$CI_COMMIT_SHA
+
+deploy-job:
+  stage: deploy
+  script:
+    - echo "Deploying to production..."
+    - kubectl apply -f k8s/

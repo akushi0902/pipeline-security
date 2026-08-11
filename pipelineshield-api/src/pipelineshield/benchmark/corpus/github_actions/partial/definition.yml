@@ -1,0 +1,25 @@
+name: Partially Hardened CI Pipeline
+on:
+  push:
+    branches: [main]
+jobs:
+  security-scan:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@abc1234def5678901234567890123456789012345
+      - name: Secrets scan
+        run: gitleaks detect --source . --exit-code 1
+      - name: SAST
+        run: semgrep --config=auto .
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@abc1234def5678901234567890123456789012345
+      - name: Build
+        env:
+          SERVICE_TOKEN: build_secret_value_here
+        run: npm run build
+      - name: Push image
+        run: docker push myimage:latest
