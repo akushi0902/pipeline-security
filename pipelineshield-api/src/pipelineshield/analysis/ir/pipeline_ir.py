@@ -78,6 +78,12 @@ class CoverageReport(BaseModel):
     constructs_handled:   list of construct types the normalizer processed.
     constructs_excluded:  list of construct types present in the source but
                           intentionally excluded from this normalizer version.
+    coverage_ratio:       fraction of detected constructs that are assessable
+                          (assessable / total_detected).  None when not computed
+                          (GitHub Actions, GitLab CI).  0.0 for fully-scripted
+                          Jenkins files; 1.0 when no Not Assessable constructs
+                          were found.  Used by the scoring engine to exclude
+                          Not Assessable content from the denominator (E3).
     """
 
     model_config = ConfigDict(frozen=True)
@@ -85,6 +91,7 @@ class CoverageReport(BaseModel):
     unresolved: list[UnresolvedFragment] = Field(default_factory=list)
     constructs_handled: list[str] = Field(default_factory=list)
     constructs_excluded: list[str] = Field(default_factory=list)
+    coverage_ratio: float | None = None
 
 
 # ---------------------------------------------------------------------------
@@ -184,7 +191,13 @@ class EffectivePermissions(BaseModel):
 
 
 class Job(BaseModel):
-    """A GitHub Actions job."""
+    """A CI/CD job (GitHub Actions job, GitLab CI job, or Jenkins stage).
+
+    extraction_metadata:  Optional dict carrying normalizer-specific provenance
+                          information.  Jenkins sets:
+                            {"extraction_method": "heuristic", "confidence": <float>}
+                          GitHub Actions and GitLab CI leave this empty.
+    """
 
     model_config = ConfigDict(frozen=True)
 
@@ -199,6 +212,7 @@ class Job(BaseModel):
     condition: str | None = None
     matrix: dict[str, Any] | None = None
     anchor: Anchor | None = None
+    extraction_metadata: dict[str, Any] = Field(default_factory=dict)
 
 
 # ---------------------------------------------------------------------------

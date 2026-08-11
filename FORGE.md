@@ -147,3 +147,10 @@
 - **Files:** 8 (+0/-0)
 - **Duration:** 1221ss
 - **Approach:** Implemented GitLabCINormalizer with two modules: gitlab_extends.py handles extends chain resolution (DFS cycle detection, deep-merge maps / replace-array semantics, topological sort), and gitlab_ci.py is the main normalizer. The !reference tag is registered once at module import via RoundTripConstructor.add_constructor and resolved post-load with flatten-in-sequence behaviour. Includes are classified into five kinds (local/remote/project/template/component); non-local and unresolvable-local includes are recorded as Not Assessable UnresolvedFragments and excluded from scoring. Hidden jobs (dot-prefix) participate in extends resolution but are excluded from the executable job list. Global default: block is merged into every job. Triggers are extracted from workflow.rules CI_PIPELINE_SOURCE expressions and job-level only/except. All IR fields map to the existing PipelineIR contract from WO-006 without GitLab-specific additions.
+
+## WO-008: User Story: WO-008 - Jenkinsfile declarative-subset extractor with Not Assessable coverage
+- **Status:** completed
+- **Commit:** `005f81a`
+- **Files:** 14 (+2319/-1)
+- **Duration:** 1548ss
+- **Approach:** N/A

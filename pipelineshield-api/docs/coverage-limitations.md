@@ -137,6 +137,72 @@ GitHub Actions normalizer limitations are documented separately. The local-only 
 
 ---
 
+## Jenkins
+
+The Jenkins normalizer applies heuristic extraction to the **declarative subset** of Jenkinsfile syntax only. All extracted nodes carry `extraction_method='heuristic'` and `confidence=0.7` in `Job.extraction_metadata`. Coverage is never higher than 1.0 for declarative pipelines.
+
+### `scripted_groovy` — No `pipeline { }` block found
+
+```groovy
+// Fully scripted Jenkinsfile
+node('linux') {
+    stage('Build') { sh 'make' }
+}
+```
+
+**Why Not Assessable:** The entire file is scripted Groovy. There is no `pipeline { }` block to anchor declarative extraction. PipelineShield records one `scripted_groovy` unresolved fragment for the whole file, yields zero jobs, and reports `coverage_ratio = 0.0`.
+
+**Impact:** No analysis is possible. The analyst should treat the pipeline as opaque.
+
+---
+
+### `script_block` — `script { }` inside a declarative stage
+
+```groovy
+stage('Deploy') {
+    steps {
+        script {
+            def tag = sh(returnStdout: true, script: 'git describe --tags').trim()
+            if (tag.startsWith('v')) { sh "docker push myapp:${tag}" }
+        }
+    }
+}
+```
+
+**Why Not Assessable:** A `script { }` block contains arbitrary Groovy. The brace-matching scanner records the block as `script_block` in `unresolved`. Steps and conditions inside the script block are not extracted.
+
+**Impact:** The surrounding stage's steps may be partial. The stage IS included as a Job (assessable) but commands inside `script { }` are invisible to rule engines. `coverage_ratio` is reduced.
+
+---
+
+### `shared_library` — `@Library` annotation or `library()` call
+
+```groovy
+@Library('my-shared-library@main') _
+
+pipeline { ... }
+```
+
+**Why Not Assessable:** Shared libraries require the Jenkins master and SCM to resolve. PipelineShield records every `@Library(...)` and `library(...)` occurrence as a `shared_library` unresolved fragment. The pipeline block itself IS still analysed, but any stage definitions or steps contributed by the library are invisible.
+
+**Impact:** `coverage_ratio` is reduced by one for each library import. Analyst must manually review library contents.
+
+---
+
+### `dynamic_stage_name` — GString interpolation in stage label
+
+```groovy
+stage("Deploy to ${env.TARGET}") {
+    steps { sh 'deploy.sh' }
+}
+```
+
+**Why Not Assessable:** The stage name contains a GString expression (`${ ... }`). PipelineShield cannot statically resolve the name, records a `dynamic_stage_name` unresolved fragment, and attempts best-effort step extraction from the stage body.
+
+**Impact:** The job `id` in the IR will contain the raw GString literal. Rules that depend on stage name matching will not fire reliably.
+
+---
+
 ## Scoring impact
 
 | Kind | Excluded from denominator? |
@@ -150,5 +216,9 @@ GitHub Actions normalizer limitations are documented separately. The local-only 
 | `extends_missing` | Yes (affected jobs) |
 | `reference_unresolvable` | Yes (affected steps) |
 | `stages_inferred` | No — informational only |
+| `scripted_groovy` | Yes — whole file not assessable |
+| `script_block` | Partial — stage assessable, block contents excluded |
+| `shared_library` | Yes — library contents not assessable |
+| `dynamic_stage_name` | Yes — stage identity not assessable |
 
 Constructs marked Not Assessable are **never** counted as Present or Missing. A score of 0.85 with five unresolved fragments means "85% of what could be assessed passed; five constructs were outside the analysis scope."

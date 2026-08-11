@@ -95,8 +95,12 @@ def create_default_registry() -> NormalizerRegistry:
     from pipelineshield.analysis.normalizers.gitlab_ci import (  # noqa: PLC0415
         GitLabCINormalizer,
     )
+    from pipelineshield.analysis.normalizers.jenkins import (  # noqa: PLC0415
+        JenkinsNormalizer,
+    )
 
     registry = NormalizerRegistry()
     registry.register(PipelineFormat.github_actions, GitHubActionsNormalizer())
     registry.register(PipelineFormat.gitlab_ci, GitLabCINormalizer())
+    registry.register(PipelineFormat.jenkins, JenkinsNormalizer())
     return registry
