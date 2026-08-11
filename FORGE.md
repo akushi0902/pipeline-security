@@ -189,3 +189,10 @@
 - **Files:** 16 (+0/-0)
 - **Duration:** 539ss
 - **Approach:** Created pipelineshield/analysis/anchoring/ package as the single chokepoint between candidate findings and persistence. RedactedDocument wraps an already-redacted RedactedDoc with a 1-based line index and per-line sha256 fingerprints (computed post-redaction). AnchorValidator.validate() runs a seven-step sequence (anchor present, bounds, unresolved-fragment, blank-line, fingerprint, snippet extraction, secret re-scan) returning ValidatedFinding objects and a SuppressionReport. FindingRepository.save_all() is added with a runtime isinstance guard that raises TypeError for any non-ValidatedFinding input and converts ValidatedFinding to Finding for persistence.
+
+## WO-018: User Story: WO-018 - Control Coverage State Machine With Not-Assessable Accounting
+- **Status:** completed
+- **Commit:** `9579c8d`
+- **Files:** 5 (+0/-0)
+- **Duration:** 558ss
+- **Approach:** Created pipelineshield/analysis/coverage/ package implementing a pure, stateless ControlEvaluator. The evaluator groups rule outcomes by control_id, applies an explicit 6-step state derivation policy (present/partial/missing/not_assessable) with documented precedence rules (resolved evidence dominates not_assessable), computes assessable_weight_total as the scoring denominator, maps IR UnresolvedFragment kinds to ExclusionReason enum values, deduplicates fragments by fragment_id (kind:locator), conditionally produces a BannerPayload, and emits metrics. Completeness and bounds invariants are asserted before returning.
