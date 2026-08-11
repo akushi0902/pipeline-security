@@ -281,10 +281,15 @@ def test_ai_finding_nonzero_weight_rejected_postgres(pg_engine):
         conn.execute(
             text(
                 "INSERT INTO control_catalogue_version "
-                "(id, version_number, controls) "
-                "VALUES (:id, 99, :controls::jsonb)"
+                "(id, version, status, snapshot, grade_bands, created_by, content_checksum) "
+                "VALUES (:id, 99, 'active', :snapshot::jsonb, '[]'::jsonb, :created_by, :checksum)"
             ),
-            {"id": str(ccv_id), "controls": '{"categories": []}'},
+            {
+                "id": str(ccv_id),
+                "snapshot": '{"categories": [], "grade_bands": []}',
+                "created_by": str(user_id),
+                "checksum": "a" * 64,
+            },
         )
         conn.execute(
             text(

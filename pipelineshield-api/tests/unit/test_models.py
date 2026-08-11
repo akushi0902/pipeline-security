@@ -107,12 +107,16 @@ def _user(session: Session, ws: Workspace) -> AppUser:
     return u
 
 
-def _catalogue(session: Session) -> ControlCatalogueVersion:
+def _catalogue(session: Session, user_id: uuid.UUID) -> ControlCatalogueVersion:
     ccv = ControlCatalogueVersion(
         id=uuid.uuid4(),
-        version_number=1,
-        description="v1",
-        controls={"categories": []},
+        version=1,
+        status="active",
+        snapshot={"categories": [], "grade_bands": []},
+        grade_bands=[],
+        created_by=user_id,
+        change_notes="v1",
+        content_checksum="a" * 64,
     )
     session.add(ccv)
     session.flush()
@@ -309,7 +313,7 @@ def test_pipeline_definition_analysis_unique(session):
     """A single analysis may have at most one pipeline_definition."""
     ws = _ws(session)
     user = _user(session, ws)
-    ccv = _catalogue(session)
+    ccv = _catalogue(session, user.id)
     a = _analysis(session, ws, user, ccv)
 
     pd1 = PipelineDefinition(
@@ -344,7 +348,7 @@ def test_ai_finding_weight_zero_accepted(session):
     """AI finding with weight=0 is valid."""
     ws = _ws(session)
     user = _user(session, ws)
-    ccv = _catalogue(session)
+    ccv = _catalogue(session, user.id)
     a = _analysis(session, ws, user, ccv)
 
     f = Finding(
@@ -367,7 +371,7 @@ def test_ai_finding_nonzero_weight_rejected(session):
     """AI finding with weight > 0 must be rejected by the CHECK constraint."""
     ws = _ws(session)
     user = _user(session, ws)
-    ccv = _catalogue(session)
+    ccv = _catalogue(session, user.id)
     a = _analysis(session, ws, user, ccv)
 
     f = Finding(
@@ -391,7 +395,7 @@ def test_deterministic_finding_nonzero_weight_accepted(session):
     """Deterministic finding with weight > 0 is valid."""
     ws = _ws(session)
     user = _user(session, ws)
-    ccv = _catalogue(session)
+    ccv = _catalogue(session, user.id)
     a = _analysis(session, ws, user, ccv)
 
     f = Finding(
@@ -419,7 +423,7 @@ def test_workspace_delete_blocked_when_analyses_exist(session):
     """Workspace cannot be deleted while analyses exist (RESTRICT FK)."""
     ws = _ws(session)
     user = _user(session, ws)
-    ccv = _catalogue(session)
+    ccv = _catalogue(session, user.id)
     _analysis(session, ws, user, ccv)
 
     with pytest.raises(Exception):
