@@ -98,3 +98,10 @@
 - **Files:** 13 (+1929/-1)
 - **Duration:** 666ss
 - **Approach:** Implemented WO-040 as a layered set of components: (1) Alembic migration 0009 adds purge_due_at + retention_class to pipeline_definition and status + error_detail to purge_receipt using batch_alter_table for SQLite/PostgreSQL compatibility. (2) PurgeRepository abstract interface + SQLAlchemyPurgeRepository implementation in persistence/repositories/purge.py handles advisory lock acquisition, due-definition selection (purge_due_at <= now, retention_class != 'sample'), FK-safe bulk deletes via delete() statements (generated_draft → remediation → finding → pipeline_definition → analysis), post-delete absence verification, receipt insertion, and SLA breach counting. (3) RetentionWorker in platform/retention/ is a framework-free class injected with PurgeRepository + AuditWriter; each batch runs in its own transaction, inserts one purge_receipt + one audit_event (action=retention.purge, actor_id=system:retention_worker), handles verification failures as status=failed receipts, and continues to subsequent batches on any per-batch error. (4) purge_receipt_builder.py computes SHA-256 digests over a strictly allowlisted manifest (ids, counts, timestamps only — no content). (5) ReconciliationService generates SLA breach counts. (6) CLI entry point at platform/retention/cli.py with --dry-run and --batch-size flags.
+
+## WO-004: User Story: WO-004 - CI/CD format detection with user confirmation round-trip
+- **Status:** completed
+- **Commit:** `4ae221d`
+- **Files:** 13 (+0/-0)
+- **Duration:** 811ss
+- **Approach:** N/A
