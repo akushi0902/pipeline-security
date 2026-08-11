@@ -96,6 +96,14 @@ class Analysis(Base):
             "(model timeout), failed."
         ),
     )
+    unscorable_reason: Mapped[str | None] = mapped_column(
+        String(128),
+        nullable=True,
+        comment=(
+            "Reason the analysis could not be scored "
+            "(e.g. 'all_not_assessable').  NULL when a numeric score is present."
+        ),
+    )
     confirmed_format: Mapped[str | None] = mapped_column(
         String(64),
         nullable=True,
@@ -144,6 +152,10 @@ class Analysis(Base):
         lazy="raise",
     )
     generated_drafts: Mapped[list["GeneratedDraft"]] = relationship(  # type: ignore[name-defined]
+        back_populates="analysis",
+        lazy="raise",
+    )
+    category_scores: Mapped[list["AnalysisCategoryScore"]] = relationship(  # type: ignore[name-defined]
         back_populates="analysis",
         lazy="raise",
     )
