@@ -91,6 +91,14 @@ class Finding(Base):
             "it.  Always True for AI-sourced findings."
         ),
     )
+    control_id: Mapped[str | None] = mapped_column(
+        String(64),
+        nullable=True,
+        comment=(
+            "Catalogue control identifier that produced this finding. "
+            "NULL for findings created before migration 0015."
+        ),
+    )
     control_category: Mapped[str] = mapped_column(
         String(64),
         nullable=False,

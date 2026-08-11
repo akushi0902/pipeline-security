@@ -26,6 +26,7 @@ from .workspace_score_rollup import WorkspaceScoreRollup
 from .category_gap_rollup import CategoryGapRollup
 from .retention_policy import RetentionPolicy
 from .analysis_category_score import AnalysisCategoryScore
+from .coverage_limitation import CoverageLimitation
 
 __all__ = [
     "Base",
@@ -47,4 +48,5 @@ __all__ = [
     "CategoryGapRollup",
     "RetentionPolicy",
     "AnalysisCategoryScore",
+    "CoverageLimitation",
 ]

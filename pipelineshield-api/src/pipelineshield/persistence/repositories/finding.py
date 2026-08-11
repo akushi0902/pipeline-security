@@ -156,6 +156,7 @@ class SQLAlchemyFindingRepository(FindingRepository):
                 analysis_id=vf.analysis_id,
                 source=db_source,
                 requires_human_review=vf.requires_human_review,
+                control_id=vf.control_id,
                 control_category=vf.category,
                 rule_id=vf.rule_id,
                 severity=vf.severity,

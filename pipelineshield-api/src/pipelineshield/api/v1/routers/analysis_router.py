@@ -19,7 +19,7 @@ from sqlalchemy.orm import Session
 import uuid
 
 from pipelineshield.analysis.format_detector import CONFIDENCE_THRESHOLD
-from pipelineshield.api.security.authz_guard import CurrentActor, require_capability
+from pipelineshield.api.security.authz_guard import CurrentActor, PERSONA_CAPABILITIES, require_capability
 from pipelineshield.api.security.scope import ResourceNotVisibleError
 from pipelineshield.api.v1.schemas.analysis import (
     AnalysisResponse,
@@ -30,6 +30,7 @@ from pipelineshield.api.v1.schemas.analysis import (
     PasteAnalysisRequest,
     PipelineFormat,
 )
+from pipelineshield.api.v1.schemas.report import AnalysisReport
 from pipelineshield.crypto.key_provider import EnvKeyProvider
 from pipelineshield.persistence.repositories.analysis import SQLAlchemyAnalysisRepository
 from pipelineshield.platform.audit_writer import AuditWriter
@@ -42,6 +43,7 @@ from pipelineshield.services.analysis_orchestrator import (
     UnsupportedContentTypeError,
     YamlParseError,
 )
+from pipelineshield.services.report_service import MissingScoringResultError, ReportService
 
 _LOG = logging.getLogger(__name__)
 
@@ -353,6 +355,122 @@ async def confirm_format(
         confirmed_format=confirmed_str,
         format_confirmed_by_user=True,
     )
+
+
+# ---------------------------------------------------------------------------
+# GET /api/v1/analyses/{analysis_id}
+# ---------------------------------------------------------------------------
+
+
+@router.get(
+    "/{analysis_id}",
+    response_model=AnalysisReport,
+    status_code=status.HTTP_200_OK,
+    summary="Retrieve the risk assessment report for an analysis",
+    responses={
+        401: {"model": IngestionErrorResponse},
+        404: {"model": IngestionErrorResponse},
+        500: {"model": IngestionErrorResponse},
+    },
+)
+async def get_analysis_report(
+    analysis_id: uuid.UUID,
+    actor: Annotated[CurrentActor, Depends(require_capability("analysis:read:own"))],
+    session: Session = Depends(get_db),
+) -> AnalysisReport:
+    """Return the full risk assessment report for an analysis.
+
+    Persona filtering is applied at the SQL predicate level:
+    - ``app_developer`` (analysis:read:own only): only their own analyses.
+    - All other permitted personas: any analysis in their workspace.
+
+    Returns 404 (not 403) when the analysis is not visible to the actor,
+    preventing existence disclosure.
+
+    Emits exactly one ``analysis.report_read`` audit event per call.
+    """
+    correlation_id = secrets.token_hex(16)
+
+    analysis_repo = SQLAlchemyAnalysisRepository(session)
+
+    # Owner-scoped for app_developer (has read:own but not read:all); workspace-
+    # scoped for everyone else.
+    actor_caps = PERSONA_CAPABILITIES.get(actor.persona, frozenset())
+    if "analysis:read:all" in actor_caps:
+        analysis = analysis_repo.get_by_id(
+            analysis_id=analysis_id,
+            workspace_id=actor.workspace_id,
+        )
+    else:
+        analysis = analysis_repo.get_by_id_owner_scoped(
+            analysis_id=analysis_id,
+            owner_id=actor.user_id,
+            workspace_id=actor.workspace_id,
+        )
+
+    if analysis is None:
+        raise HTTPException(
+            status_code=404,
+            detail=_error_body(
+                correlation_id, 404, "Not Found",
+                "The requested analysis was not found.",
+                constraint="analysis_not_found",
+            ),
+        )
+
+    try:
+        report_service = ReportService(session)
+        report = report_service.build_report(analysis)
+    except MissingScoringResultError as exc:
+        _LOG.error(
+            "analysis_report_scoring_missing",
+            extra={
+                "correlation_id": correlation_id,
+                "analysis_id": str(analysis_id),
+                "actor_id": str(actor.user_id),
+                "error": str(exc),
+            },
+            exc_info=False,
+        )
+        raise HTTPException(
+            status_code=500,
+            detail=_error_body(
+                correlation_id, 500, "Internal Server Error",
+                "Scoring result is unavailable for this analysis. "
+                "Please retry with the correlation id.",
+            ),
+        ) from exc
+
+    # Audit — exactly one event per report read; no definition content
+    writer = AuditWriter(session)
+    writer.write(
+        actor_id=str(actor.user_id),
+        actor_persona=actor.persona,
+        actor_user_id=actor.user_id,
+        workspace_id=actor.workspace_id,
+        action="analysis.report_read",
+        resource_type="analysis",
+        resource_id=str(analysis.id),
+        correlation_id=correlation_id,
+        change_detail={
+            "catalogue_version": report.catalogue_version,
+            "format": report.format,
+        },
+    )
+
+    _LOG.info(
+        "analysis_report_read",
+        extra={
+            "analysis_id": str(analysis.id),
+            "correlation_id": correlation_id,
+            "actor_id": str(actor.user_id),
+            "persona": actor.persona,
+            "format": report.format,
+            "catalogue_version": report.catalogue_version,
+        },
+    )
+
+    return report
 
 
 # ---------------------------------------------------------------------------

@@ -159,6 +159,10 @@ class Analysis(Base):
         back_populates="analysis",
         lazy="raise",
     )
+    coverage_limitations: Mapped[list["CoverageLimitation"]] = relationship(  # type: ignore[name-defined]
+        back_populates="analysis",
+        lazy="raise",
+    )
 
     def __repr__(self) -> str:
         return f"<Analysis id={self.id!r} score={self.score!r} grade={self.grade!r}>"
