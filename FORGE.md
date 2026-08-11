@@ -168,3 +168,10 @@
 - **Files:** 6 (+0/-0)
 - **Duration:** 536ss
 - **Approach:** Built a framework-free, pure-Python rule evaluation runtime in a new analysis/rule_engine package. The engine accepts a canonical PipelineIR and a catalogue snapshot, iterates all registered rules in deterministic sorted order (by rule_id), applies per-rule try/except isolation, enforces node-count and wall-clock budget guards between rules, deduplicates by fingerprint, and returns a deterministically sorted EvaluationResult. No FastAPI, SQLAlchemy, HTTP client, or LLM imports exist in any engine module — verified by an import-graph test. Five IR fixtures cover all three CI formats plus empty and large (6200-node) cases.
+
+## WO-015: User Story: WO-015 - Versioned Control Catalogue With Weighted Nine Categories
+- **Status:** completed
+- **Commit:** `ad80396`
+- **Files:** 6 (+0/-0)
+- **Duration:** 646ss
+- **Approach:** Extended the existing WO-009 catalogue domain with the additional WO-015 requirements: ControlSource enum (deterministic/ai_advisory), weight_contribution field on ControlDefinition, CatalogueIntegrityError, two new CatalogueSnapshot validators (ai_advisory → weight_contribution=0; critical/high → non-empty reference_tools), a process-local CatalogueLoader with thread-safe cache and explicit invalidate(), and InMemoryCatalogueRepository satisfying the same abstract interface as the SQLAlchemy implementation. Updated catalogue_v1.json to add source/weight_contribution fields and fix the two high-severity controls (lp-001, ag-001) that had empty reference_tools.
