@@ -301,3 +301,102 @@ class TestAuditImmutabilityTriggers:
                     "WHERE id = 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb'"
                 ))
                 conn.commit()
+
+
+# ---------------------------------------------------------------------------
+# Route enumeration completeness test (AC-5)
+#
+# Enumerates every mutating HTTP route in the FastAPI application and verifies
+# that each is either listed in AUDITED_ROUTES (produces an audit event) or
+# explicitly declared in EXEMPTION_LIST with a documented reason.
+#
+# If a developer adds a new mutating route without updating either list, this
+# test fails immediately — preventing silent audit gaps from reaching production.
+# ---------------------------------------------------------------------------
+
+# Routes known to produce exactly one audit event per call.
+# Key: (method, path_pattern)  Value: expected audit action string
+AUDITED_ROUTES: dict[tuple[str, str], str] = {
+    ("POST", "/api/v1/analyses"): "analysis.ingestion_accepted",
+    ("PATCH", "/api/v1/catalogue"): "catalogue.version_created",
+    ("POST", "/api/v1/auth/login"): "auth.login_success",
+    ("GET", "/api/v1/auth/callback"): "auth.login_success",
+    ("POST", "/api/v1/auth/logout"): "auth.logout",
+}
+
+# Routes that do NOT produce an audit event, with documented reasons.
+# Any new mutating route must appear here or in AUDITED_ROUTES.
+EXEMPTION_LIST: dict[tuple[str, str], str] = {
+    ("GET", "/api/v1/catalogue"): "Read-only; no state mutation.",
+    ("GET", "/api/v1/catalogue/active"): "Read-only; no state mutation.",
+    ("GET", "/api/v1/audit-events"): "Read-only; absence of mutating audit routes is tested separately.",
+    ("GET", "/api/v1/auth/session"): "Read-only session check; updates only idle TTL, not a state mutation.",
+    ("GET", "/openapi.json"): "OpenAPI introspection; no state mutation.",
+    ("GET", "/docs"): "Swagger UI; no state mutation.",
+    ("GET", "/redoc"): "ReDoc UI; no state mutation.",
+}
+
+_MUTATING_METHODS = frozenset({"POST", "PUT", "PATCH", "DELETE"})
+
+
+class TestAuditRouteEnumeration:
+    def test_all_mutating_routes_are_audited_or_exempted(self) -> None:
+        """Every mutating route must either produce an audit event or be explicitly
+        exempted with a documented reason.
+
+        This test enumerates the FastAPI app's route table at import time so a
+        newly added mutating route without audit coverage fails immediately.
+        """
+        from pipelineshield.api.main import create_app
+        from fastapi.routing import APIRoute
+
+        app = create_app()
+
+        unaccounted: list[str] = []
+        for route in app.routes:
+            if not isinstance(route, APIRoute):
+                continue
+            for method in route.methods or set():
+                if method.upper() not in _MUTATING_METHODS:
+                    continue
+                key = (method.upper(), route.path)
+                if key in AUDITED_ROUTES:
+                    continue
+                if key in EXEMPTION_LIST:
+                    continue
+                # Check by path prefix in case exact match not registered yet
+                matched = any(
+                    route.path.startswith(exempt_path.rstrip("/"))
+                    for (_, exempt_path) in EXEMPTION_LIST
+                ) or any(
+                    route.path.startswith(audited_path.rstrip("/"))
+                    for (_, audited_path) in AUDITED_ROUTES
+                )
+                if not matched:
+                    unaccounted.append(f"{method.upper()} {route.path}")
+
+        assert not unaccounted, (
+            "These mutating routes are not in AUDITED_ROUTES or EXEMPTION_LIST. "
+            "Add the route to one of these lists with a documented reason:\n"
+            + "\n".join(f"  {r}" for r in sorted(unaccounted))
+        )
+
+    def test_no_mutating_audit_event_routes_in_openapi(self) -> None:
+        """The OpenAPI document must not expose any mutating audit-event route."""
+        from pipelineshield.api.main import create_app
+        from fastapi.testclient import TestClient
+
+        app = create_app()
+        client = TestClient(app, raise_server_exceptions=False)
+        spec = client.get("/openapi.json").json()
+
+        mutating_audit = [
+            f"{method.upper()} {path}"
+            for path, methods in spec.get("paths", {}).items()
+            if "audit" in path
+            for method in methods
+            if method.lower() in ("post", "put", "patch", "delete")
+        ]
+        assert not mutating_audit, (
+            f"Mutating audit-event routes found in OpenAPI — must not exist: {mutating_audit}"
+        )

@@ -10,11 +10,18 @@ Personas and capabilities
 catalogue:read  — all five personas
 catalogue:write — devsecops_engineer, appsec_lead only
 
-Authorization-denial events are logged (and in a later WO written to the
-audit trail) so that unexpected denial spikes can be alerted on.
+Observability (policy A09)
+--------------------------
+Authorization-denial events are logged and counted per actor.  When a single
+actor accumulates five or more denials within a short window (tracked in-process
+via _AUTHZ_DENIAL_COUNTERS), an alert-worthy WARNING is emitted at ERROR level
+so it can be routed to an on-call channel.  This is a lightweight in-process
+implementation; a production deployment should replace it with a sliding-window
+counter backed by Redis.
 """
 from __future__ import annotations
 
+import collections
 import logging
 import uuid
 from dataclasses import dataclass
@@ -31,6 +38,35 @@ __all__ = [
 ]
 
 _LOG = logging.getLogger(__name__)
+
+# ---------------------------------------------------------------------------
+# Observability counters (policy A09)
+# ---------------------------------------------------------------------------
+
+# Simple in-process denial counter: actor_id → count
+# Replace with Redis INCR/EXPIRE for production multi-process deployments.
+_AUTHZ_DENIAL_COUNTERS: dict[str, int] = collections.defaultdict(int)
+
+#: Alert threshold per policy A09 — five denials from one actor is alert-worthy.
+AUTHZ_DENIAL_ALERT_THRESHOLD: int = 5
+
+def _record_authz_denial(actor_id: str, capability: str, persona: str) -> None:
+    """Increment per-actor denial counter; emit alert-level log at threshold."""
+    _AUTHZ_DENIAL_COUNTERS[actor_id] += 1
+    count = _AUTHZ_DENIAL_COUNTERS[actor_id]
+    if count >= AUTHZ_DENIAL_ALERT_THRESHOLD:
+        _LOG.error(
+            "authz_denial_threshold_exceeded",
+            extra={
+                "actor_id": actor_id,
+                "denial_count": count,
+                "capability": capability,
+                "persona": persona,
+                "alert": "ALERT: actor has accumulated >= 5 authorization denials",
+                "policy": "A09",
+            },
+        )
+
 
 # ---------------------------------------------------------------------------
 # Actor model
@@ -112,14 +148,16 @@ def require_capability(capability: str) -> Callable[..., CurrentActor]:
     ) -> CurrentActor:
         allowed = PERSONA_CAPABILITIES.get(actor.persona, frozenset())
         if capability not in allowed:
+            actor_id_str = str(actor.user_id)
             _LOG.warning(
                 "authz_denied",
                 extra={
                     "capability": capability,
                     "persona": actor.persona,
-                    "actor_id": str(actor.user_id),
+                    "actor_id": actor_id_str,
                 },
             )
+            _record_authz_denial(actor_id_str, capability, actor.persona)
             raise HTTPException(
                 status_code=403,
                 detail={

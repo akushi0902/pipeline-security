@@ -35,7 +35,21 @@ from pipelineshield.persistence.models.audit_event import AuditEvent
 from pipelineshield.persistence.repositories.audit import SQLAlchemyAuditRepository
 from pipelineshield.platform.content_guard import AuditContentViolation, guard_change_detail
 
-__all__ = ["AuditWriter", "AuditContentViolation"]
+import collections as _collections
+
+__all__ = ["AuditWriter", "AuditWriteError", "AuditContentViolation", "AUDIT_EVENTS_WRITTEN_TOTAL"]
+
+#: Per-action counter for audit events written (process-local; best-effort).
+#: Increment is per-commit, not per-flush — the row is flushed but not yet durable.
+AUDIT_EVENTS_WRITTEN_TOTAL: dict[str, int] = _collections.defaultdict(int)
+
+
+class AuditWriteError(Exception):
+    """Raised when AuditWriter cannot write a record due to invalid input.
+
+    Callers must treat this as fatal and roll back the enclosing transaction
+    rather than completing an unaudited mutation (fail-closed).
+    """
 
 
 class AuditWriter:
@@ -66,8 +80,14 @@ class AuditWriter:
         """Build, validate, and append one audit event row.
 
         Returns the persisted AuditEvent instance.
+        Raises AuditWriteError if actor_id is missing or empty.
         Raises AuditContentViolation if change_detail contains secret-shaped content.
         """
+        if not actor_id:
+            raise AuditWriteError(
+                "actor_id must be provided for every audit event; "
+                "use actor_reference for pre-authentication events."
+            )
         detail = change_detail or {}
         guarded_detail = guard_change_detail(detail)
 
@@ -85,4 +105,6 @@ class AuditWriter:
             source_ip_masked=source_ip_masked,
             user_agent_hash=user_agent_hash,
         )
-        return self._repo.append(event)
+        persisted = self._repo.append(event)
+        AUDIT_EVENTS_WRITTEN_TOTAL[action] += 1
+        return persisted
