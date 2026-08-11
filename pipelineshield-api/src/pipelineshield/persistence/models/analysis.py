@@ -87,6 +87,14 @@ class Analysis(Base):
             "Not Assessable categories."
         ),
     )
+    unscorable_reason: Mapped[str | None] = mapped_column(
+        String(255),
+        nullable=True,
+        comment=(
+            "Populated when all controls are Not Assessable and no "
+            "numeric score can be computed."
+        ),
+    )
     status: Mapped[str] = mapped_column(
         String(32),
         nullable=False,

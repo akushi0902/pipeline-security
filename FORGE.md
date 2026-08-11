@@ -28,3 +28,10 @@
 - **Files:** 28 (+2701/-0)
 - **Duration:** 1462ss
 - **Approach:** N/A
+
+## WO-020: User Story: WO-020 - Deterministic weighted scoring engine with versioned catalogue
+- **Status:** completed
+- **Commit:** `1de657c`
+- **Files:** 30 (+1657/-0)
+- **Duration:** 497ss
+- **Approach:** N/A

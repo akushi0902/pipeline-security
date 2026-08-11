@@ -1,0 +1,24 @@
+{
+  "description": "Boundary test: engineered to produce score at/near 89.5 grade boundary",
+  "notes": "secrets_hygiene (15) present, artifact_signing (15) present, static_analysis (12) present, dependency_scanning (12) present, least_privilege (12) present, iac_misconfiguration (10) present, supply_chain_integrity (10) present, sbom (8) present, approval_gates (6) missing → score = 94/100 = 94.0 grade A. Use this fixture to test that near-boundary values are classified correctly.",
+  "verdicts": [
+    {"control_id": "sh-001",  "category_id": "secrets_hygiene",       "verdict": "present"},
+    {"control_id": "sh-002",  "category_id": "secrets_hygiene",       "verdict": "present"},
+    {"control_id": "as-001",  "category_id": "artifact_signing",      "verdict": "present"},
+    {"control_id": "as-002",  "category_id": "artifact_signing",      "verdict": "present"},
+    {"control_id": "sa-001",  "category_id": "static_analysis",       "verdict": "present"},
+    {"control_id": "ds-001",  "category_id": "dependency_scanning",   "verdict": "present"},
+    {"control_id": "ds-002",  "category_id": "dependency_scanning",   "verdict": "present"},
+    {"control_id": "lp-001",  "category_id": "least_privilege",       "verdict": "present"},
+    {"control_id": "lp-002",  "category_id": "least_privilege",       "verdict": "present"},
+    {"control_id": "iac-001", "category_id": "iac_misconfiguration",  "verdict": "present"},
+    {"control_id": "sci-001", "category_id": "supply_chain_integrity","verdict": "present"},
+    {"control_id": "sci-002", "category_id": "supply_chain_integrity","verdict": "present"},
+    {"control_id": "sbom-001","category_id": "sbom",                  "verdict": "present"},
+    {"control_id": "ag-001",  "category_id": "approval_gates",        "verdict": "missing"}
+  ],
+  "expected": {
+    "is_scorable": true,
+    "letter_grade": "A"
+  }
+}
