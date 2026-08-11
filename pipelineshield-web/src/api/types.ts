@@ -102,3 +102,63 @@ export interface AuditEventsResponse {
   next_cursor: string | null;
   total_returned: number;
 }
+
+// ---------------------------------------------------------------------------
+// Admin / Role Binding types
+// ---------------------------------------------------------------------------
+
+export type Persona =
+  | 'app_developer'
+  | 'devops_engineer'
+  | 'devsecops_engineer'
+  | 'appsec_lead'
+  | 'engineering_manager';
+
+export const VALID_PERSONAS: Persona[] = [
+  'app_developer',
+  'devops_engineer',
+  'devsecops_engineer',
+  'appsec_lead',
+  'engineering_manager',
+];
+
+export interface RoleBindingItem {
+  id: string;
+  app_user_id: string;
+  masked_email: string;
+  display_name: string;
+  persona: Persona;
+  granted_by_id: string | null;
+  granted_at: string;
+  revoked_at: string | null;
+}
+
+export interface RoleBindingListResponse {
+  items: RoleBindingItem[];
+  total: number;
+}
+
+export interface GrantBindingRequest {
+  user_id: string;
+  persona: Persona;
+}
+
+export interface GrantBindingResponse extends RoleBindingItem {}
+
+export interface ChangeBindingRequest {
+  persona: Persona;
+}
+
+export interface GroupPersonaMappingItem {
+  id: string;
+  idp_group: string;
+  workspace_id: string;
+  persona: Persona;
+  precedence: number;
+  created_at: string;
+}
+
+export interface GroupPersonaMappingListResponse {
+  items: GroupPersonaMappingItem[];
+  total: number;
+}

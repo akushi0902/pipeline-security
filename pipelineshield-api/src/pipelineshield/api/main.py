@@ -12,6 +12,7 @@ from fastapi.responses import JSONResponse
 
 from pipelineshield.api.middleware.body_size_limit import BodySizeLimitMiddleware
 from pipelineshield.api.security.scope import AuthorizationError, ResourceNotVisibleError
+from pipelineshield.api.v1.routers.admin_router import router as admin_router
 from pipelineshield.api.v1.routers.analysis_router import router as analysis_router
 from pipelineshield.api.v1.routers.audit_router import router as audit_router
 from pipelineshield.api.v1.routers.auth_router import router as auth_router
@@ -33,6 +34,7 @@ def create_app() -> FastAPI:
     app.include_router(catalogue_router, prefix="/api/v1")
     app.include_router(audit_router, prefix="/api/v1")
     app.include_router(analysis_router, prefix="/api/v1")
+    app.include_router(admin_router, prefix="/api/v1")
 
     # RFC 7807 handler for AuthorizationError (403) — resource visible, verb forbidden.
     @app.exception_handler(AuthorizationError)

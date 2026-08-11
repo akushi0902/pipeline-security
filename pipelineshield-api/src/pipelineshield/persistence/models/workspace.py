@@ -8,7 +8,7 @@ from __future__ import annotations
 import uuid
 from datetime import datetime
 
-from sqlalchemy import DateTime, String, func
+from sqlalchemy import Boolean, DateTime, String, func, true
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -46,6 +46,18 @@ class Workspace(Base):
         nullable=False,
         unique=True,
         comment="URL-safe slug; unique across the platform.",
+    )
+    classification: Mapped[str] = mapped_column(
+        String(64),
+        nullable=False,
+        server_default="internal",
+        comment="Data classification label (e.g. internal, confidential).",
+    )
+    active: Mapped[bool] = mapped_column(
+        Boolean,
+        nullable=False,
+        server_default=true(),
+        comment="False when workspace is deactivated; bindings yield no access.",
     )
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),

@@ -12,6 +12,7 @@ from .base import Base, metadata
 from .workspace import Workspace
 from .app_user import AppUser
 from .role_binding import RoleBinding
+from .group_persona_mapping import GroupPersonaMapping
 from .analysis import Analysis
 from .pipeline_definition import PipelineDefinition
 from .finding import Finding
@@ -30,6 +31,7 @@ __all__ = [
     "Workspace",
     "AppUser",
     "RoleBinding",
+    "GroupPersonaMapping",
     "Analysis",
     "PipelineDefinition",
     "Finding",
