@@ -182,3 +182,10 @@
 - **Files:** 20 (+1988/-0)
 - **Duration:** 826ss
 - **Approach:** N/A
+
+## WO-017: User Story: WO-017 - Mandatory Anchor Validation Gate Suppressing Unanchored Findings
+- **Status:** completed
+- **Commit:** `060854c`
+- **Files:** 16 (+0/-0)
+- **Duration:** 539ss
+- **Approach:** Created pipelineshield/analysis/anchoring/ package as the single chokepoint between candidate findings and persistence. RedactedDocument wraps an already-redacted RedactedDoc with a 1-based line index and per-line sha256 fingerprints (computed post-redaction). AnchorValidator.validate() runs a seven-step sequence (anchor present, bounds, unresolved-fragment, blank-line, fingerprint, snippet extraction, secret re-scan) returning ValidatedFinding objects and a SuppressionReport. FindingRepository.save_all() is added with a runtime isinstance guard that raises TypeError for any non-ValidatedFinding input and converts ValidatedFinding to Finding for persistence.
