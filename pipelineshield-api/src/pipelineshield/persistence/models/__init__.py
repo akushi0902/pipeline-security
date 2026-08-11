@@ -24,6 +24,7 @@ from .sample_pipeline import SamplePipeline
 from .workspace_score_rollup import WorkspaceScoreRollup
 from .category_gap_rollup import CategoryGapRollup
 from .analysis_category_score import AnalysisCategoryScore
+from .retention_policy import RetentionPolicy
 
 __all__ = [
     "Base",
@@ -43,4 +44,5 @@ __all__ = [
     "WorkspaceScoreRollup",
     "CategoryGapRollup",
     "AnalysisCategoryScore",
+    "RetentionPolicy",
 ]

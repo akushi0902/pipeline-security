@@ -62,3 +62,41 @@ def make_session_factory(
     the session always uses autobegin mode).
     """
     return sessionmaker(engine, autoflush=False)
+
+
+# ---------------------------------------------------------------------------
+# FastAPI session dependency
+# ---------------------------------------------------------------------------
+
+_session_factory: sessionmaker[Session] | None = None
+
+
+def init_session_factory(engine: "sqlalchemy.engine.Engine") -> None:  # type: ignore[name-defined]
+    """Initialise the module-level session factory from the given engine.
+
+    Call once at application startup, e.g. in the lifespan context manager.
+    """
+    global _session_factory
+    _session_factory = make_session_factory(engine)
+
+
+def get_session():  # type: ignore[return]
+    """FastAPI dependency that yields a SQLAlchemy session per request.
+
+    Commits on success, rolls back on exception.  Override this dependency
+    in tests with a scoped test session.
+    """
+    if _session_factory is None:
+        raise RuntimeError(
+            "Session factory has not been initialised.  "
+            "Call init_session_factory() at application startup."
+        )
+    session: Session = _session_factory()
+    try:
+        yield session
+        session.commit()
+    except Exception:
+        session.rollback()
+        raise
+    finally:
+        session.close()
