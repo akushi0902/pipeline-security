@@ -280,3 +280,10 @@
 - **Files:** 0 (+0/-0)
 - **Duration:** 139ss
 - **Approach:** N/A
+
+## WO-032: User Story: WO-032 - Seeded demonstration pipeline corpus with ground-truth manifest
+- **Status:** completed
+- **Commit:** `f381cac`
+- **Files:** 2 (+187/-0)
+- **Duration:** 158ss
+- **Approach:** N/A
