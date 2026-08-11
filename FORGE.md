@@ -175,3 +175,10 @@
 - **Files:** 6 (+0/-0)
 - **Duration:** 646ss
 - **Approach:** Extended the existing WO-009 catalogue domain with the additional WO-015 requirements: ControlSource enum (deterministic/ai_advisory), weight_contribution field on ControlDefinition, CatalogueIntegrityError, two new CatalogueSnapshot validators (ai_advisory → weight_contribution=0; critical/high → non-empty reference_tools), a process-local CatalogueLoader with thread-safe cache and explicit invalidate(), and InMemoryCatalogueRepository satisfying the same abstract interface as the SQLAlchemy implementation. Updated catalogue_v1.json to add source/weight_contribution fields and fix the two high-severity controls (lp-001, ag-001) that had empty reference_tools.
+
+## WO-016: User Story: WO-016 - High-Severity Pipeline Weakness Rule Pack Implementation
+- **Status:** completed
+- **Commit:** `415881e`
+- **Files:** 20 (+1988/-0)
+- **Duration:** 826ss
+- **Approach:** N/A
