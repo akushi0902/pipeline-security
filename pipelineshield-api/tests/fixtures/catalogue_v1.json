@@ -12,16 +12,25 @@
           "category_id": "secrets_hygiene",
           "severity": "critical",
           "enabled": true,
-          "reference_tools": ["Gitleaks", "TruffleHog"],
-          "remediation_template_ref": "secrets/remove_hardcoded_secret"
+          "reference_tools": [
+            "Gitleaks",
+            "TruffleHog"
+          ],
+          "remediation_template_ref": "secrets/remove_hardcoded_secret",
+          "source": "deterministic",
+          "weight_contribution": 0.0
         },
         {
           "id": "sh-002",
           "category_id": "secrets_hygiene",
           "severity": "high",
           "enabled": true,
-          "reference_tools": ["Gitleaks"],
-          "remediation_template_ref": "secrets/rotate_exposed_secret"
+          "reference_tools": [
+            "Gitleaks"
+          ],
+          "remediation_template_ref": "secrets/rotate_exposed_secret",
+          "source": "deterministic",
+          "weight_contribution": 0.0
         }
       ]
     },
@@ -37,16 +46,26 @@
           "category_id": "artifact_signing",
           "severity": "high",
           "enabled": true,
-          "reference_tools": ["Cosign", "Sigstore"],
-          "remediation_template_ref": "signing/add_cosign_step"
+          "reference_tools": [
+            "Cosign",
+            "Sigstore"
+          ],
+          "remediation_template_ref": "signing/add_cosign_step",
+          "source": "deterministic",
+          "weight_contribution": 0.0
         },
         {
           "id": "as-002",
           "category_id": "artifact_signing",
           "severity": "medium",
           "enabled": true,
-          "reference_tools": ["Cosign", "in-toto"],
-          "remediation_template_ref": "signing/add_provenance_attestation"
+          "reference_tools": [
+            "Cosign",
+            "in-toto"
+          ],
+          "remediation_template_ref": "signing/add_provenance_attestation",
+          "source": "deterministic",
+          "weight_contribution": 0.0
         }
       ]
     },
@@ -62,8 +81,13 @@
           "category_id": "static_analysis",
           "severity": "high",
           "enabled": true,
-          "reference_tools": ["Semgrep", "CodeQL"],
-          "remediation_template_ref": "sast/add_semgrep_step"
+          "reference_tools": [
+            "Semgrep",
+            "CodeQL"
+          ],
+          "remediation_template_ref": "sast/add_semgrep_step",
+          "source": "deterministic",
+          "weight_contribution": 0.0
         }
       ]
     },
@@ -79,16 +103,25 @@
           "category_id": "dependency_scanning",
           "severity": "high",
           "enabled": true,
-          "reference_tools": ["Trivy", "Grype"],
-          "remediation_template_ref": "sca/add_trivy_step"
+          "reference_tools": [
+            "Trivy",
+            "Grype"
+          ],
+          "remediation_template_ref": "sca/add_trivy_step",
+          "source": "deterministic",
+          "weight_contribution": 0.0
         },
         {
           "id": "ds-002",
           "category_id": "dependency_scanning",
           "severity": "medium",
           "enabled": true,
-          "reference_tools": ["Trivy"],
-          "remediation_template_ref": "sca/add_container_scan"
+          "reference_tools": [
+            "Trivy"
+          ],
+          "remediation_template_ref": "sca/add_container_scan",
+          "source": "deterministic",
+          "weight_contribution": 0.0
         }
       ]
     },
@@ -104,8 +137,13 @@
           "category_id": "least_privilege",
           "severity": "high",
           "enabled": true,
-          "reference_tools": [],
-          "remediation_template_ref": "identity/restrict_token_permissions"
+          "reference_tools": [
+            "GitHub Actions permissions key",
+            "CODEOWNERS"
+          ],
+          "remediation_template_ref": "identity/restrict_token_permissions",
+          "source": "deterministic",
+          "weight_contribution": 0.0
         },
         {
           "id": "lp-002",
@@ -113,7 +151,9 @@
           "severity": "medium",
           "enabled": true,
           "reference_tools": [],
-          "remediation_template_ref": "identity/use_ephemeral_credentials"
+          "remediation_template_ref": "identity/use_ephemeral_credentials",
+          "source": "deterministic",
+          "weight_contribution": 0.0
         }
       ]
     },
@@ -129,8 +169,13 @@
           "category_id": "iac_misconfiguration",
           "severity": "high",
           "enabled": true,
-          "reference_tools": ["Checkov", "tfsec"],
-          "remediation_template_ref": "iac/add_checkov_step"
+          "reference_tools": [
+            "Checkov",
+            "tfsec"
+          ],
+          "remediation_template_ref": "iac/add_checkov_step",
+          "source": "deterministic",
+          "weight_contribution": 0.0
         }
       ]
     },
@@ -146,8 +191,12 @@
           "category_id": "supply_chain_integrity",
           "severity": "high",
           "enabled": true,
-          "reference_tools": ["StepSecurity/harden-runner"],
-          "remediation_template_ref": "supply_chain/pin_action_versions"
+          "reference_tools": [
+            "StepSecurity/harden-runner"
+          ],
+          "remediation_template_ref": "supply_chain/pin_action_versions",
+          "source": "deterministic",
+          "weight_contribution": 0.0
         },
         {
           "id": "sci-002",
@@ -155,7 +204,9 @@
           "severity": "medium",
           "enabled": true,
           "reference_tools": [],
-          "remediation_template_ref": "supply_chain/verify_action_checksums"
+          "remediation_template_ref": "supply_chain/verify_action_checksums",
+          "source": "deterministic",
+          "weight_contribution": 0.0
         }
       ]
     },
@@ -171,8 +222,13 @@
           "category_id": "sbom",
           "severity": "medium",
           "enabled": true,
-          "reference_tools": ["Syft", "CycloneDX"],
-          "remediation_template_ref": "sbom/add_syft_step"
+          "reference_tools": [
+            "Syft",
+            "CycloneDX"
+          ],
+          "remediation_template_ref": "sbom/add_syft_step",
+          "source": "deterministic",
+          "weight_contribution": 0.0
         }
       ]
     },
@@ -188,17 +244,42 @@
           "category_id": "approval_gates",
           "severity": "high",
           "enabled": true,
-          "reference_tools": [],
-          "remediation_template_ref": "approval/add_environment_protection"
+          "reference_tools": [
+            "GitHub Environments protection rules",
+            "GitLab Protected Environments"
+          ],
+          "remediation_template_ref": "approval/add_environment_protection",
+          "source": "deterministic",
+          "weight_contribution": 0.0
         }
       ]
     }
   ],
   "grade_bands": [
-    {"grade": "F", "min_score": 0,  "max_score": 59},
-    {"grade": "D", "min_score": 60, "max_score": 69},
-    {"grade": "C", "min_score": 70, "max_score": 79},
-    {"grade": "B", "min_score": 80, "max_score": 89},
-    {"grade": "A", "min_score": 90, "max_score": 100}
+    {
+      "grade": "F",
+      "min_score": 0,
+      "max_score": 59
+    },
+    {
+      "grade": "D",
+      "min_score": 60,
+      "max_score": 69
+    },
+    {
+      "grade": "C",
+      "min_score": 70,
+      "max_score": 79
+    },
+    {
+      "grade": "B",
+      "min_score": 80,
+      "max_score": 89
+    },
+    {
+      "grade": "A",
+      "min_score": 90,
+      "max_score": 100
+    }
   ]
 }

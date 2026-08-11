@@ -43,7 +43,11 @@ def _load(name: str) -> dict:
 
 
 def _minimal_snapshot(weight: int = 100) -> dict:
-    """Minimal valid snapshot with a single category."""
+    """Minimal valid snapshot with a single category.
+
+    The default control uses severity=high with a reference_tool to satisfy
+    the WO-015 constraint that Critical/High controls must name at least one tool.
+    """
     return {
         "categories": [
             {
@@ -58,7 +62,7 @@ def _minimal_snapshot(weight: int = 100) -> dict:
                         "category_id": "cat_a",
                         "severity": "high",
                         "enabled": True,
-                        "reference_tools": [],
+                        "reference_tools": ["TestTool"],
                         "remediation_template_ref": None,
                     }
                 ],
@@ -191,7 +195,7 @@ def test_duplicate_control_id_rejected():
                         "category_id": "cat_a",
                         "severity": "high",
                         "enabled": True,
-                        "reference_tools": [],
+                        "reference_tools": ["ToolA"],
                         "remediation_template_ref": None,
                     },
                     {
@@ -241,6 +245,11 @@ def test_all_severity_values_accepted():
     for sev in ("critical", "high", "medium", "low", "info"):
         data = _minimal_snapshot()
         data["categories"][0]["controls"][0]["severity"] = sev
+        # Critical/High need at least one reference_tool (WO-015 constraint)
+        if sev in ("critical", "high"):
+            data["categories"][0]["controls"][0]["reference_tools"] = ["TestTool"]
+        else:
+            data["categories"][0]["controls"][0]["reference_tools"] = []
         snap = CatalogueSnapshot.model_validate(data)
         assert snap.categories[0].controls[0].severity.value == sev
 
@@ -362,3 +371,146 @@ def test_catalogue_validation_error_defaults():
     err = CatalogueValidationError("plain error")
     assert err.field == ""
     assert err.value is None
+
+
+# ---------------------------------------------------------------------------
+# ControlSource enum (WO-015)
+# ---------------------------------------------------------------------------
+
+
+def test_control_source_deterministic_is_default():
+    from pipelineshield.catalogue import ControlSource
+    data = _minimal_snapshot()
+    snap = CatalogueSnapshot.model_validate(data)
+    ctrl = snap.categories[0].controls[0]
+    assert ctrl.source == ControlSource.DETERMINISTIC
+
+
+def test_control_source_ai_advisory_accepted():
+    from pipelineshield.catalogue import ControlSource
+    data = _minimal_snapshot()
+    data["categories"][0]["controls"][0]["source"] = "ai_advisory"
+    # weight_contribution must be 0 for ai_advisory (default is 0.0)
+    snap = CatalogueSnapshot.model_validate(data)
+    assert snap.categories[0].controls[0].source == ControlSource.AI_ADVISORY
+
+
+def test_control_source_invalid_value_rejected():
+    data = _minimal_snapshot()
+    data["categories"][0]["controls"][0]["source"] = "nonexistent_source"
+    with pytest.raises(ValidationError):
+        CatalogueSnapshot.model_validate(data)
+
+
+# ---------------------------------------------------------------------------
+# AI-advisory zero-weight constraint (WO-015)
+# ---------------------------------------------------------------------------
+
+
+def test_ai_advisory_control_with_nonzero_weight_rejected():
+    data = _minimal_snapshot()
+    data["categories"][0]["controls"][0]["source"] = "ai_advisory"
+    data["categories"][0]["controls"][0]["weight_contribution"] = 5.0
+    with pytest.raises(ValidationError, match="[Aa][Ii]|ai_advisory|weight"):
+        CatalogueSnapshot.model_validate(data)
+
+
+def test_ai_advisory_control_with_zero_weight_accepted():
+    data = _minimal_snapshot()
+    data["categories"][0]["controls"][0]["source"] = "ai_advisory"
+    data["categories"][0]["controls"][0]["weight_contribution"] = 0.0
+    snap = CatalogueSnapshot.model_validate(data)
+    assert snap.categories[0].controls[0].weight_contribution == 0.0
+
+
+def test_deterministic_control_with_positive_weight_accepted():
+    data = _minimal_snapshot()
+    data["categories"][0]["controls"][0]["source"] = "deterministic"
+    data["categories"][0]["controls"][0]["weight_contribution"] = 5.0
+    snap = CatalogueSnapshot.model_validate(data)
+    assert snap.categories[0].controls[0].weight_contribution == 5.0
+
+
+# ---------------------------------------------------------------------------
+# Critical/High controls must have reference_tools (WO-015)
+# ---------------------------------------------------------------------------
+
+
+def test_critical_control_without_reference_tools_rejected():
+    data = _minimal_snapshot()
+    data["categories"][0]["controls"][0]["severity"] = "critical"
+    data["categories"][0]["controls"][0]["reference_tools"] = []
+    with pytest.raises(ValidationError, match="[Rr]eference|tool"):
+        CatalogueSnapshot.model_validate(data)
+
+
+def test_high_control_without_reference_tools_rejected():
+    data = _minimal_snapshot()
+    data["categories"][0]["controls"][0]["severity"] = "high"
+    data["categories"][0]["controls"][0]["reference_tools"] = []
+    with pytest.raises(ValidationError, match="[Rr]eference|tool"):
+        CatalogueSnapshot.model_validate(data)
+
+
+def test_critical_control_with_reference_tools_accepted():
+    data = _minimal_snapshot()
+    data["categories"][0]["controls"][0]["severity"] = "critical"
+    data["categories"][0]["controls"][0]["reference_tools"] = ["Gitleaks"]
+    snap = CatalogueSnapshot.model_validate(data)
+    assert snap.categories[0].controls[0].reference_tools == ["Gitleaks"]
+
+
+def test_medium_control_without_reference_tools_accepted():
+    """Medium severity controls are not required to specify reference_tools."""
+    data = _minimal_snapshot()
+    data["categories"][0]["controls"][0]["severity"] = "medium"
+    data["categories"][0]["controls"][0]["reference_tools"] = []
+    snap = CatalogueSnapshot.model_validate(data)
+    assert snap.categories[0].controls[0].reference_tools == []
+
+
+def test_low_control_without_reference_tools_accepted():
+    data = _minimal_snapshot()
+    data["categories"][0]["controls"][0]["severity"] = "low"
+    data["categories"][0]["controls"][0]["reference_tools"] = []
+    snap = CatalogueSnapshot.model_validate(data)
+    assert snap.categories[0].controls[0].reference_tools == []
+
+
+def test_v1_fixture_passes_reference_tools_validation():
+    """Updated v1 fixture must pass the new reference_tools constraint."""
+    raw = _load("catalogue_v1.json")
+    snap = CatalogueSnapshot.model_validate(raw)
+    from pipelineshield.catalogue.schemas import Severity
+    high_sev = {Severity.CRITICAL, Severity.HIGH}
+    for cat in snap.categories:
+        for ctrl in cat.controls:
+            if ctrl.severity in high_sev:
+                assert ctrl.reference_tools, (
+                    f"{ctrl.id} has {ctrl.severity.value} severity but empty reference_tools"
+                )
+
+
+# ---------------------------------------------------------------------------
+# weight_contribution field (WO-015)
+# ---------------------------------------------------------------------------
+
+
+def test_weight_contribution_defaults_to_zero():
+    data = _minimal_snapshot()
+    snap = CatalogueSnapshot.model_validate(data)
+    assert snap.categories[0].controls[0].weight_contribution == 0.0
+
+
+def test_weight_contribution_accepts_positive_float():
+    data = _minimal_snapshot()
+    data["categories"][0]["controls"][0]["weight_contribution"] = 12.5
+    snap = CatalogueSnapshot.model_validate(data)
+    assert snap.categories[0].controls[0].weight_contribution == 12.5
+
+
+def test_weight_contribution_negative_rejected():
+    data = _minimal_snapshot()
+    data["categories"][0]["controls"][0]["weight_contribution"] = -1.0
+    with pytest.raises(ValidationError):
+        CatalogueSnapshot.model_validate(data)

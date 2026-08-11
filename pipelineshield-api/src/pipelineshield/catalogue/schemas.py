@@ -7,6 +7,8 @@ Validation rules enforced at the Pydantic boundary (not ad-hoc if-blocks):
 - Severity must be a member of the Severity enum.
 - Grade bands must cover 0-100 contiguously with no overlaps or gaps.
 - At least one category must be enabled.
+- AI-advisory controls must carry weight_contribution == 0.
+- Critical and High controls must have at least one entry in reference_tools.
 """
 from __future__ import annotations
 
@@ -36,12 +38,33 @@ class CatalogueVersionConflictError(RuntimeError):
     """
 
 
+class CatalogueIntegrityError(RuntimeError):
+    """Raised when a stored catalogue checksum does not match the computed one.
+
+    Fails the analysis closed with a 503 and a correlation id rather than
+    scoring against a possibly tampered catalogue.
+    """
+
+
 class Severity(str, enum.Enum):
     CRITICAL = "critical"
     HIGH = "high"
     MEDIUM = "medium"
     LOW = "low"
     INFO = "info"
+
+
+class ControlSource(str, enum.Enum):
+    """Source policy for a control definition.
+
+    deterministic — rule-engine evaluated; may carry non-zero weight.
+    ai_advisory   — AI-generated advisory; structurally constrained to
+                    weight_contribution == 0 so no AI-sourced control
+                    can influence the organisational score.
+    """
+
+    DETERMINISTIC = "deterministic"
+    AI_ADVISORY = "ai_advisory"
 
 
 class ControlDefinition(BaseModel):
@@ -53,6 +76,8 @@ class ControlDefinition(BaseModel):
     enabled: bool = True
     reference_tools: list[str] = Field(default_factory=list)
     remediation_template_ref: str | None = None
+    source: ControlSource = ControlSource.DETERMINISTIC
+    weight_contribution: float = Field(default=0.0, ge=0.0)
 
     model_config = {"frozen": True}
 
@@ -151,6 +176,37 @@ class CatalogueSnapshot(BaseModel):
         dupes = {i for i in all_ids if i in seen or seen.add(i)}  # type: ignore[func-returns-value]
         if dupes:
             raise ValueError(f"Duplicate control IDs: {sorted(dupes)}")
+        return self
+
+    @model_validator(mode="after")
+    def _ai_advisory_controls_have_zero_weight(self) -> "CatalogueSnapshot":
+        violations = [
+            ctrl.id
+            for cat in self.categories
+            for ctrl in cat.controls
+            if ctrl.source == ControlSource.AI_ADVISORY and ctrl.weight_contribution != 0.0
+        ]
+        if violations:
+            raise ValueError(
+                f"AI-advisory controls must have weight_contribution == 0; "
+                f"non-zero weight found on: {sorted(violations)}"
+            )
+        return self
+
+    @model_validator(mode="after")
+    def _critical_high_controls_have_reference_tools(self) -> "CatalogueSnapshot":
+        _high_severity = {Severity.CRITICAL, Severity.HIGH}
+        violations = [
+            ctrl.id
+            for cat in self.categories
+            for ctrl in cat.controls
+            if ctrl.severity in _high_severity and not ctrl.reference_tools
+        ]
+        if violations:
+            raise ValueError(
+                f"Critical and High severity controls must specify at least one "
+                f"reference_tool; empty reference_tools found on: {sorted(violations)}"
+            )
         return self
 
     @model_validator(mode="after")

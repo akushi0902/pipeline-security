@@ -1,16 +1,21 @@
-"""CatalogueRepository — abstract interface and SQLAlchemy 2.0 implementation.
+"""CatalogueRepository — abstract interface, SQLAlchemy 2.0 and in-memory implementations.
 
 ``create_version`` only ever issues INSERT statements.
 ``mark_superseded`` is the single permitted UPDATE path; it touches only the
 ``status`` column (the snapshot content remains immutable).  WO-10 adds this
 transition guard so predecessor rows are marked superseded atomically within
 the same transaction as the new version INSERT.
+
+InMemoryCatalogueRepository is provided for unit tests and property tests;
+it satisfies the same interface as SQLAlchemyCatalogueRepository.
 """
 from __future__ import annotations
 
 import logging
 import uuid
 from abc import ABC, abstractmethod
+from dataclasses import dataclass, field
+from datetime import datetime, timezone
 from typing import Any, Sequence
 
 from sqlalchemy import select
@@ -139,3 +144,93 @@ class SQLAlchemyCatalogueRepository(CatalogueRepository):
             return  # idempotent
         row.status = "superseded"
         self._session.flush()
+
+
+# ---------------------------------------------------------------------------
+# In-memory implementation (tests and property tests)
+# ---------------------------------------------------------------------------
+
+
+@dataclass
+class _InMemoryRow:
+    """Minimal stand-in for ControlCatalogueVersion used by InMemoryCatalogueRepository."""
+
+    id: uuid.UUID
+    version: int
+    status: str
+    snapshot: dict
+    grade_bands: list
+    created_by: uuid.UUID
+    change_notes: str | None
+    content_checksum: str
+    created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
+
+
+class InMemoryCatalogueRepository(CatalogueRepository):
+    """Pure-Python in-memory implementation of CatalogueRepository.
+
+    Satisfies the same interface as SQLAlchemyCatalogueRepository.
+    Suitable for unit tests and property tests where a real database is
+    not available.
+
+    Immutability is enforced by raising on any attempt to mutate snapshot
+    content (only status transitions via mark_superseded are permitted).
+    """
+
+    def __init__(self) -> None:
+        self._rows: dict[uuid.UUID, _InMemoryRow] = {}
+        self._version_index: dict[int, uuid.UUID] = {}
+
+    def get_active(self) -> _InMemoryRow | None:
+        active = [r for r in self._rows.values() if r.status == "active"]
+        if not active:
+            return None
+        return max(active, key=lambda r: r.version)
+
+    def get_by_version(self, version: int) -> _InMemoryRow | None:
+        row_id = self._version_index.get(version)
+        if row_id is None:
+            return None
+        return self._rows.get(row_id)
+
+    def list_versions(self) -> Sequence[_InMemoryRow]:
+        return sorted(self._rows.values(), key=lambda r: r.version)
+
+    def create_version(
+        self,
+        version: int,
+        snapshot: CatalogueSnapshot,
+        created_by: uuid.UUID,
+        change_notes: str | None = None,
+    ) -> _InMemoryRow:
+        if version in self._version_index:
+            raise CatalogueVersionConflictError(
+                f"Catalogue version {version} already exists."
+            )
+
+        snapshot_dict: Any = snapshot.model_dump()
+        grade_bands_list: Any = [gb.model_dump() for gb in snapshot.grade_bands]
+        checksum = compute_checksum(snapshot_dict)
+        row_id = uuid.uuid4()
+
+        row = _InMemoryRow(
+            id=row_id,
+            version=version,
+            status="active",
+            snapshot=snapshot_dict,
+            grade_bands=grade_bands_list,
+            created_by=created_by,
+            change_notes=change_notes,
+            content_checksum=checksum,
+        )
+        self._rows[row_id] = row
+        self._version_index[version] = row_id
+        return row
+
+    def mark_superseded(self, row_id: uuid.UUID) -> None:
+        row = self._rows.get(row_id)
+        if row is None:
+            raise ValueError(f"Catalogue row {row_id!r} not found.")
+        if row.status == "superseded":
+            return
+        row.status = "superseded"
