@@ -11,6 +11,7 @@ from sqlalchemy.orm import Session
 from ..models.finding import Finding
 
 if TYPE_CHECKING:
+    from pipelineshield.analysis.anchoring.models import ValidatedFinding
     from pipelineshield.api.security.scope import ActorScope
 
 
@@ -58,6 +59,14 @@ class FindingRepository(ABC):
     @abstractmethod
     def add_many(self, findings: list[Finding]) -> list[Finding]:
         """Bulk-persist a list of Findings."""
+
+    @abstractmethod
+    def save_all(self, validated_findings: "list[ValidatedFinding]") -> list[Finding]:
+        """Persist validated findings after anchor-gate enforcement.
+
+        Accepts only ValidatedFinding instances — a raw CandidateFinding or any
+        other type raises TypeError at this boundary (runtime isinstance guard).
+        """
 
     @abstractmethod
     def delete(self, finding: Finding) -> None:
@@ -126,6 +135,40 @@ class SQLAlchemyFindingRepository(FindingRepository):
             self._session.add(f)
         self._session.flush()
         return findings
+
+    def save_all(self, validated_findings: "list[ValidatedFinding]") -> list[Finding]:
+        from pipelineshield.analysis.anchoring.models import ValidatedFinding as _VF
+
+        for item in validated_findings:
+            if not isinstance(item, _VF):
+                raise TypeError(
+                    f"save_all() accepts only ValidatedFinding instances; "
+                    f"got {type(item).__name__!r}. "
+                    "Route candidates through AnchorValidator.validate() first."
+                )
+
+        db_source_map = {"ai_advisory": "ai", "deterministic": "deterministic"}
+        db_findings: list[Finding] = []
+        for vf in validated_findings:
+            db_source = db_source_map.get(vf.source, vf.source)
+            f = Finding(
+                workspace_id=vf.workspace_id,
+                analysis_id=vf.analysis_id,
+                source=db_source,
+                requires_human_review=vf.requires_human_review,
+                control_category=vf.category,
+                rule_id=vf.rule_id,
+                severity=vf.severity,
+                weight=vf.weight,
+                title=vf.title,
+                description=vf.description,
+                anchor_line=vf.anchor_line,
+                anchor_column=vf.anchor_column,
+                evidence={**vf.evidence, "snippet": vf.snippet},
+            )
+            db_findings.append(f)
+
+        return self.add_many(db_findings)
 
     def delete(self, finding: Finding) -> None:
         self._session.delete(finding)
