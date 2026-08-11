@@ -38,8 +38,10 @@ from pipelineshield.persistence.repositories.analysis import SQLAlchemyAnalysisR
 from pipelineshield.persistence.repositories.catalogue import SQLAlchemyCatalogueRepository
 from pipelineshield.persistence.repositories.definition import SQLAlchemyDefinitionRepository
 from pipelineshield.platform.audit_writer import AuditWriter
+from pipelineshield.catalogue.schemas import CatalogueSnapshot
 from pipelineshield.services.format_detector import FormatDetector
 from pipelineshield.services.normalizer_registry import NormalizerRegistry
+from pipelineshield.services.scoring_engine import ControlOutcome, ScoringEngine
 
 __all__ = [
     "AnalysisOrchestrator",
@@ -304,6 +306,26 @@ class AnalysisOrchestrator:
         timings["normalization_ms"] = (time.monotonic() - t0) * 1000
 
         # ------------------------------------------------------------------
+        # Stage 5.5: Resolve active catalogue snapshot once (pinned for this request)
+        # ------------------------------------------------------------------
+        cat_repo = SQLAlchemyCatalogueRepository(session)
+        active_cat = cat_repo.get_active()
+        if active_cat is None:
+            raise NoCatalogueError()
+        pinned_snapshot: CatalogueSnapshot = CatalogueSnapshot.model_validate(active_cat.snapshot)
+        scoring_engine = ScoringEngine(pinned_snapshot, active_cat.id)
+
+        # Score with empty evaluations (findings engine not yet wired; WO-05+)
+        score_result = scoring_engine.score({})
+        final_score = score_result.score if score_result.score is not None else 0
+        final_grade = score_result.grade if score_result.grade is not None else "-"
+        merged_coverage = dict(norm_result.coverage_report)
+        merged_coverage["assessed_control_count"] = score_result.assessed_control_count
+        merged_coverage["excluded_control_count"] = score_result.excluded_control_count
+        if score_result.coverage_limitations:
+            merged_coverage["coverage_limitations"] = list(score_result.coverage_limitations)
+
+        # ------------------------------------------------------------------
         # Stage 6: Persist — atomic transaction
         # ------------------------------------------------------------------
         t0 = time.monotonic()
@@ -314,8 +336,11 @@ class AnalysisOrchestrator:
             filename=filename,
             detected_format=detected_format,
             confidence=confidence,
-            coverage_report=norm_result.coverage_report,
+            coverage_report=merged_coverage,
             correlation_id=correlation_id,
+            catalogue_version_id=active_cat.id,
+            score=final_score,
+            grade=final_grade,
         )
         timings["persistence_ms"] = (time.monotonic() - t0) * 1000
 
@@ -356,11 +381,12 @@ class AnalysisOrchestrator:
         return AnalysisResponse(
             analysis_id=analysis.id,
             workspace_id=actor.workspace_id,
+            catalogue_version_id=active_cat.id,
             created_at=analysis.created_at,
             detected_format=detected_format.value,
             format_confidence=confidence,
             format_confirmation_required=format_confirmation_required,
-            coverage_report=norm_result.coverage_report,
+            coverage_report=merged_coverage,
             advisory_disclaimer=ADVISORY_DISCLAIMER,
         )
 
@@ -400,18 +426,26 @@ class AnalysisOrchestrator:
         confidence: float,
         coverage_report: dict[str, Any],
         correlation_id: str,
+        catalogue_version_id: uuid.UUID | None = None,
+        score: int = 0,
+        grade: str = "-",
     ) -> tuple[Analysis, PipelineDefinition]:
         """Create Analysis + PipelineDefinition rows in a single flush.
 
         Both rows are added before the flush so the session's unit-of-work
         inserts them atomically.  Any flush failure propagates to the caller
         who owns the rollback.
+
+        catalogue_version_id must be passed by the caller (resolved once at
+        request start via the active catalogue snapshot).
         """
-        # Resolve active catalogue version (required for Analysis FK)
-        cat_repo = SQLAlchemyCatalogueRepository(session)
-        active_cat = cat_repo.get_active()
-        if active_cat is None:
-            raise NoCatalogueError()
+        if catalogue_version_id is None:
+            # Fallback: resolve here to preserve backward-compat if called directly
+            cat_repo = SQLAlchemyCatalogueRepository(session)
+            active_cat = cat_repo.get_active()
+            if active_cat is None:
+                raise NoCatalogueError()
+            catalogue_version_id = active_cat.id
 
         line_count = len(masked_text.splitlines())
 
@@ -419,11 +453,11 @@ class AnalysisOrchestrator:
             id=uuid.uuid4(),
             workspace_id=actor.workspace_id,
             owner_id=actor.user_id,
-            catalogue_version_id=active_cat.id,
+            catalogue_version_id=catalogue_version_id,
             pipeline_format=detected_format.value,
             format_confidence=confidence,
-            score=0,
-            grade="-",
+            score=score,
+            grade=grade,
             coverage_report=coverage_report,
             status="pending_analysis",
         )
