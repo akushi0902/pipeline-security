@@ -5,8 +5,11 @@ dependencies (session, current actor) without mutating global state.
 """
 from __future__ import annotations
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
+from fastapi.responses import JSONResponse
 
+from pipelineshield.api.middleware.body_size_limit import BodySizeLimitMiddleware
+from pipelineshield.api.v1.routers.analysis_router import router as analysis_router
 from pipelineshield.api.v1.routers.audit_router import router as audit_router
 from pipelineshield.api.v1.routers.auth_router import router as auth_router
 from pipelineshield.api.v1.routers.catalogue_router import router as catalogue_router
@@ -20,9 +23,38 @@ def create_app() -> FastAPI:
         redoc_url="/api/redoc",
     )
 
+    # Body-size middleware must be added before routers so it wraps all routes.
+    app.add_middleware(BodySizeLimitMiddleware)
+
     app.include_router(auth_router, prefix="/api/v1")
     app.include_router(catalogue_router, prefix="/api/v1")
     app.include_router(audit_router, prefix="/api/v1")
+    app.include_router(analysis_router, prefix="/api/v1")
+
+    # RFC 7807 handler for unhandled 422 Pydantic validation errors
+    @app.exception_handler(422)
+    async def _validation_error_handler(request: Request, exc: Exception) -> JSONResponse:
+        from fastapi.exceptions import RequestValidationError
+        import secrets as _secrets
+        if isinstance(exc, RequestValidationError):
+            corr = _secrets.token_hex(16)
+            errors = exc.errors()
+            return JSONResponse(
+                status_code=422,
+                content={
+                    "type": "https://pipelineshield.internal/errors/validation-error",
+                    "title": "Validation Error",
+                    "status": 422,
+                    "detail": "Request body failed schema validation.",
+                    "correlation_id": corr,
+                    "errors": [
+                        {"field": ".".join(str(l) for l in e.get("loc", [])),
+                         "message": e.get("msg", "")}
+                        for e in errors
+                    ],
+                },
+            )
+        raise exc
 
     return app
 
