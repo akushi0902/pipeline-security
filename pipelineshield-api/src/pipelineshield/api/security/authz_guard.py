@@ -117,8 +117,9 @@ PERSONA_CAPABILITIES: dict[str, frozenset[str]] = {
         "finding:read:all",
         "export:create",
         "dashboard:read",
+        "governance:data",
     }),
-    # appsec_lead: same as devsecops + role management.
+    # appsec_lead: same as devsecops + role management + governance.
     "appsec_lead": frozenset({
         "catalogue:read",
         "catalogue:write",
@@ -130,6 +131,7 @@ PERSONA_CAPABILITIES: dict[str, frozenset[str]] = {
         "export:create",
         "dashboard:read",
         "admin:role:write",
+        "governance:data",
     }),
     # engineering_manager: summary-only read; no create, no catalogue write, no findings.
     "engineering_manager": frozenset({

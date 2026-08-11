@@ -119,3 +119,10 @@
 - **Files:** 22 (+3139/-11)
 - **Duration:** 853ss
 - **Approach:** N/A
+
+## WO-043: User Story: WO-043 - On-Demand Subject Data Export And Erasure
+- **Status:** completed
+- **Commit:** `40f2d0f`
+- **Files:** 25 (+1449/-1)
+- **Duration:** 588ss
+- **Approach:** N/A

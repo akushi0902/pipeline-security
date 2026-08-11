@@ -17,6 +17,7 @@ from pipelineshield.api.v1.routers.analysis_router import router as analysis_rou
 from pipelineshield.api.v1.routers.audit_router import router as audit_router
 from pipelineshield.api.v1.routers.auth_router import router as auth_router
 from pipelineshield.api.v1.routers.catalogue_router import router as catalogue_router
+from pipelineshield.api.v1.routers.governance_router import router as governance_router
 
 
 def create_app() -> FastAPI:
@@ -35,6 +36,7 @@ def create_app() -> FastAPI:
     app.include_router(audit_router, prefix="/api/v1")
     app.include_router(analysis_router, prefix="/api/v1")
     app.include_router(admin_router, prefix="/api/v1")
+    app.include_router(governance_router, prefix="/api/v1")
 
     # RFC 7807 handler for AuthorizationError (403) — resource visible, verb forbidden.
     @app.exception_handler(AuthorizationError)

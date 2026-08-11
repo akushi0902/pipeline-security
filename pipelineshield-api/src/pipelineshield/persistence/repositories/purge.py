@@ -141,6 +141,8 @@ class PurgeRepository(ABC):
         verification_digest: str,
         status: str,
         error_detail: str | None = None,
+        trigger: str = "scheduled",
+        subject_user_id: uuid.UUID | None = None,
     ) -> PurgeReceipt:
         """Insert a purge_receipt row and return the managed instance."""
 
@@ -274,6 +276,8 @@ class SQLAlchemyPurgeRepository(PurgeRepository):
         verification_digest: str,
         status: str,
         error_detail: str | None = None,
+        trigger: str = "scheduled",
+        subject_user_id: uuid.UUID | None = None,
     ) -> PurgeReceipt:
         receipt = PurgeReceipt(
             id=uuid.uuid4(),
@@ -283,6 +287,8 @@ class SQLAlchemyPurgeRepository(PurgeRepository):
             verification_digest=verification_digest,
             status=status,
             error_detail=error_detail,
+            trigger=trigger,
+            subject_user_id=subject_user_id,
         )
         self._session.add(receipt)
         self._session.flush()

@@ -11,6 +11,7 @@ from datetime import datetime
 from sqlalchemy import CheckConstraint, DateTime, String, Text, func
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column
+import uuid as _uuid_module
 
 from .base import Base
 
@@ -31,6 +32,10 @@ class PurgeReceipt(Base):
         CheckConstraint(
             "status IN ('succeeded', 'failed', 'partial')",
             name="ck_purge_receipt_status",
+        ),
+        CheckConstraint(
+            "trigger IN ('scheduled', 'on_demand')",
+            name="ck_purge_receipt_trigger",
         ),
     )
 
@@ -86,6 +91,23 @@ class PurgeReceipt(Base):
         comment=(
             "Non-sensitive error description when status != succeeded. "
             "Must not contain row content or secret values."
+        ),
+    )
+    trigger: Mapped[str] = mapped_column(
+        String(32),
+        nullable=False,
+        server_default="scheduled",
+        comment=(
+            "Source of the purge: 'scheduled' (RetentionWorker) or "
+            "'on_demand' (SubjectRightsService governance endpoint)."
+        ),
+    )
+    subject_user_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True),
+        nullable=True,
+        comment=(
+            "Data subject whose Confidential material was erased. "
+            "NULL for scheduled purge batches."
         ),
     )
     created_at: Mapped[datetime] = mapped_column(
