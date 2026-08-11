@@ -210,3 +210,10 @@
 - **Files:** 7 (+0/-0)
 - **Duration:** 653ss
 - **Approach:** Created pipelineshield/analysis/scoring/ package with a pure, stateless ScoringEngine (no FastAPI/SQLAlchemy imports) that consumes ControlVerdict list + CatalogueSnapshot and emits ScoreResult. Decimal ROUND_HALF_UP arithmetic for cross-platform reproducibility. NOT_ASSESSABLE controls excluded from both numerator and denominator. Category weight distributed equally among enabled controls when weight_contribution is zero. PARTIAL credit configurable per call (default 0.5). Zero denominator returns explicit unscorable result. Grade banding uses int comparison after ROUND_HALF_UP so 89.5 maps to A. Added AnalysisCategoryScore model, migration 0014, analysis.unscorable_reason column, and .importlinter config.
+
+## WO-021: User Story: WO-021 - Assemble risk assessment report payload with mandatory disclaimer
+- **Status:** completed
+- **Commit:** `1cb7459`
+- **Files:** 11 (+0/-0)
+- **Duration:** 1017ss
+- **Approach:** Defined AnalysisReport as a single Pydantic v2 model in api/v1/schemas/report.py with all required submodels. ReportService.build_report() composes score rows, category scores, findings, and coverage limitations into the validated report. Persona dispatch in the GET handler: app_developer uses get_by_id_owner_scoped; read:all personas use get_by_id — both return None→404. Advisory disclaimer enforced by field_validator that rejects blank/whitespace. CoverageLimitation model + migration 0015 adds coverage_limitation table and finding.control_id column. FindingRepository.save_all() now stores control_id from ValidatedFinding.
