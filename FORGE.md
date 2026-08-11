@@ -245,3 +245,17 @@
 - **Files:** 7 (+930/-0)
 - **Duration:** 381ss
 - **Approach:** N/A
+
+## WO-031: User Story: WO-031 - Before and after pipeline comparison with projected score
+- **Status:** completed
+- **Commit:** `2c71f1a`
+- **Files:** 7 (+0/-0)
+- **Duration:** 275ss
+- **Approach:** N/A
+
+## WO-034: User Story: WO-034 - Findings export in JSON, SARIF and PDF with audit trail
+- **Status:** completed
+- **Commit:** `941bf37`
+- **Files:** 0 (+0/-0)
+- **Duration:** 63ss
+- **Approach:** N/A
