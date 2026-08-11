@@ -11,14 +11,21 @@ and is enforced by SQLite as well as PostgreSQL.
 
 Note: dialect-specific types (UUID, JSONB) degrade gracefully under SQLite.
 The test is about schema shape and constraints, not dialect features.
+
+SQLAlchemy 2.0 notes:
+- StaticPool is used so all sessions share the same SQLite in-memory connection
+  and therefore see the same tables created by Base.metadata.create_all().
+- The session fixture uses Session(engine) without the deprecated bind= kwarg
+  and rolls back after each test for isolation.
 """
 from __future__ import annotations
 
 import uuid
 
 import pytest
-from sqlalchemy import create_engine, inspect, text
+from sqlalchemy import create_engine, event, inspect, text
 from sqlalchemy.orm import Session
+from sqlalchemy.pool import StaticPool
 
 from pipelineshield.persistence.models import (
     Base,
@@ -39,15 +46,23 @@ from pipelineshield.persistence.models import (
 
 @pytest.fixture(scope="module")
 def engine():
-    """Create an in-memory SQLite engine with the full schema."""
+    """Create an in-memory SQLite engine with the full schema.
+
+    StaticPool forces all connections to reuse the same underlying SQLite
+    in-memory database, which is required for multiple Session instances to
+    see the same tables within a single test run.
+    """
     eng = create_engine(
         "sqlite:///:memory:",
-        # SQLite needs this to enforce FK constraints.
         connect_args={"check_same_thread": False},
+        poolclass=StaticPool,
     )
-    # Enable FK enforcement for SQLite.
-    with eng.connect() as conn:
-        conn.execute(text("PRAGMA foreign_keys = ON"))
+
+    # Enable FK enforcement for every connection checked out from the pool.
+    @event.listens_for(eng, "connect")
+    def _enable_fk(dbapi_conn, connection_record):  # type: ignore[misc]
+        dbapi_conn.execute("PRAGMA foreign_keys = ON")
+
     Base.metadata.create_all(eng)
     yield eng
     Base.metadata.drop_all(eng)
@@ -55,16 +70,16 @@ def engine():
 
 @pytest.fixture
 def session(engine):
-    """Provide a transactional test session that rolls back after each test."""
-    connection = engine.connect()
-    transaction = connection.begin()
-    sess = Session(bind=connection)
-    # Enable FK enforcement per-session for SQLite.
-    sess.execute(text("PRAGMA foreign_keys = ON"))
+    """Provide a test session that rolls back after each test.
+
+    Uses SQLAlchemy 2.0 style: Session(engine) with explicit rollback for
+    isolation.  Each test's changes are flushed (written to the in-session
+    transaction) but never committed, so the rollback restores a clean state.
+    """
+    sess = Session(engine)
     yield sess
+    sess.rollback()
     sess.close()
-    transaction.rollback()
-    connection.close()
 
 
 # ---------------------------------------------------------------------------
