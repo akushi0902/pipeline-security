@@ -329,3 +329,17 @@
 - **Files:** 6 (+93/-0)
 - **Duration:** 135ss
 - **Approach:** N/A
+
+## WO-029: User Story: WO-029 - Secure architecture and draft config review UI
+- **Status:** completed
+- **Commit:** `c4910ef`
+- **Files:** 1 (+0/-0)
+- **Duration:** 212ss
+- **Approach:** N/A
+
+## WO-033: User Story: WO-033 - Guided end-to-end demo workflow across all personas
+- **Status:** completed
+- **Commit:** `2511045`
+- **Files:** 0 (+0/-0)
+- **Duration:** 88ss
+- **Approach:** N/A
