@@ -161,3 +161,10 @@
 - **Files:** 11 (+997/-0)
 - **Duration:** 538ss
 - **Approach:** N/A
+
+## WO-014: User Story: WO-014 - Deterministic Rule Engine Core Over Canonical PipelineIR
+- **Status:** completed
+- **Commit:** `c10d73a`
+- **Files:** 6 (+0/-0)
+- **Duration:** 536ss
+- **Approach:** Built a framework-free, pure-Python rule evaluation runtime in a new analysis/rule_engine package. The engine accepts a canonical PipelineIR and a catalogue snapshot, iterates all registered rules in deterministic sorted order (by rule_id), applies per-rule try/except isolation, enforces node-count and wall-clock budget guards between rules, deduplicates by fingerprint, and returns a deterministically sorted EvaluationResult. No FastAPI, SQLAlchemy, HTTP client, or LLM imports exist in any engine module — verified by an import-graph test. Five IR fixtures cover all three CI formats plus empty and large (6200-node) cases.
