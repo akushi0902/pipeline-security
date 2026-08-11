@@ -1,0 +1,43 @@
+stages:
+  - security
+  - build
+  - sign
+  - deploy
+
+variables:
+  IMAGE: registry.example.com/java-service
+
+security-scan:
+  stage: security
+  script:
+    - gitleaks detect --source . --exit-code 1
+    - semgrep --config=auto .
+    - trivy fs --exit-code 1 .
+    - trivy image --exit-code 1 $IMAGE:latest
+    - checkov -d . --quiet
+
+build-job:
+  stage: build
+  script:
+    - mvn package -DskipTests
+    - docker build -t $IMAGE:$CI_COMMIT_SHA .
+    - syft $IMAGE:$CI_COMMIT_SHA -o cyclonedx-json > sbom.json
+    - docker push $IMAGE:$CI_COMMIT_SHA
+
+sign-job:
+  stage: sign
+  id_tokens:
+    SIGSTORE_ID_TOKEN:
+      aud: sigstore
+  script:
+    - cosign sign --identity-token $SIGSTORE_ID_TOKEN $IMAGE:$CI_COMMIT_SHA
+    - cosign attest --predicate provenance.json $IMAGE:$CI_COMMIT_SHA
+
+deploy-job:
+  stage: deploy
+  when: manual
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "main"'
+      when: manual
+  script:
+    - kubectl apply -f k8s/

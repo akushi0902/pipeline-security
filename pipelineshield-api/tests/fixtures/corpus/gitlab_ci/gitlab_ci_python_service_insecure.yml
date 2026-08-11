@@ -1,0 +1,21 @@
+stages:
+  - test
+  - deploy
+
+variables:
+  REGISTRY: registry.example.com
+  IMAGE: $REGISTRY/python-service
+  API_TOKEN: EXAMPLE_hardcoded_api_token_rst012_do_not_use
+
+test-job:
+  stage: test
+  script:
+    - pip install -r requirements.txt
+    - pytest --tb=short
+
+deploy-job:
+  stage: deploy
+  script:
+    - docker build -t $IMAGE:$CI_COMMIT_SHA .
+    - docker push $IMAGE:$CI_COMMIT_SHA
+    - kubectl apply -f k8s/
