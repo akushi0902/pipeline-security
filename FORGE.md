@@ -28,3 +28,10 @@
 - **Files:** 17 (+495/-1)
 - **Duration:** 381ss
 - **Approach:** N/A
+
+## WO-002: User Story: WO-002 - Length-preserving secret redactor at ingestion boundary
+- **Status:** completed
+- **Commit:** `b75e5b7`
+- **Files:** 5 (+0/-0)
+- **Duration:** 1024ss
+- **Approach:** Implemented a pure, framework-free analysis module with an ordered immutable pattern registry (6 explicit RedactionPattern entries + Shannon-entropy detector) and a single-pass non-overlapping masking algorithm. The redactor collects all regex spans plus high-entropy candidates, resolves overlaps by (start, registry_index) order, and applies a newline-preserving length-exact mask (_make_mask). RedactedDoc is a frozen Pydantic model with redaction_map excluded from serialisation (Field(exclude=True)). A ThreadPoolExecutor timeout guard prevents catastrophic-backtracking DoS. Structured logging emits per-pattern counts only.
