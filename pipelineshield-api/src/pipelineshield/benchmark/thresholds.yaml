@@ -22,3 +22,7 @@ anchor_line_tolerance: 2
 
 # Minimum warm-up iterations before recording latency.
 latency_warmup_iterations: 3
+
+# Maximum allowed false positives (findings with no matching seeded gap).
+# Zero means the gate requires no unmatched findings.
+max_false_positives: 0

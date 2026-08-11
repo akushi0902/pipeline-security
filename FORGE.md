@@ -217,3 +217,10 @@
 - **Files:** 11 (+0/-0)
 - **Duration:** 1017ss
 - **Approach:** Defined AnalysisReport as a single Pydantic v2 model in api/v1/schemas/report.py with all required submodels. ReportService.build_report() composes score rows, category scores, findings, and coverage limitations into the validated report. Persona dispatch in the GET handler: app_developer uses get_by_id_owner_scoped; read:all personas use get_by_id — both return None→404. Advisory disclaimer enforced by field_validator that rejects blank/whitespace. CoverageLimitation model + migration 0015 adds coverage_limitation table and finding.control_id column. FindingRepository.save_all() now stores control_id from ValidatedFinding.
+
+## WO-046: User Story: WO-046 - Detection Rate Benchmark Harness With Per-Format Gates
+- **Status:** completed
+- **Commit:** `9effbd4`
+- **Files:** 3 (+165/-1)
+- **Duration:** 890ss
+- **Approach:** N/A

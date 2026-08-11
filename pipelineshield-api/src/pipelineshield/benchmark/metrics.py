@@ -21,6 +21,8 @@ class AdjudicationEntry:
     control_id: str
     rule_id: str
     anchor_line: int
+    category: str = ""       # WO-046: for FP-by-category aggregation
+    source_format: str = ""  # WO-046: for FP-by-format aggregation
 
 
 @dataclass
@@ -69,6 +71,24 @@ class BenchmarkMetrics:
     not_assessable_by_format: list[NotAssessableStats]
     case_errors: list[str]
 
+    # WO-046: raw gap counts per format/category (for TP/FN calculation in reports)
+    gaps_by_format: dict[str, int] = field(default_factory=dict)
+    detected_by_format: dict[str, int] = field(default_factory=dict)
+    gaps_by_category: dict[str, int] = field(default_factory=dict)
+    detected_by_category: dict[str, int] = field(default_factory=dict)
+
+    # WO-046: false positive metrics (first-class, not derived from adjudication length)
+    false_positive_count: int = 0
+    false_positive_by_format: dict[str, int] = field(default_factory=dict)
+    false_positive_by_category: dict[str, int] = field(default_factory=dict)
+
+    # WO-046: precision per format/category  (TP / (TP + FP))
+    precision_by_format: dict[str, float] = field(default_factory=dict)
+    precision_by_category: dict[str, float] = field(default_factory=dict)
+
+    # WO-046: stable sha256 digest over sorted gap detection outcomes
+    reproducibility_digest: str = ""
+
 
 def _percentile(sorted_values: list[float], p: float) -> float:
     if not sorted_values:
@@ -79,6 +99,17 @@ def _percentile(sorted_values: list[float], p: float) -> float:
     hi = min(lo + 1, n - 1)
     frac = idx - lo
     return sorted_values[lo] * (1 - frac) + sorted_values[hi] * frac
+
+
+def _compute_reproducibility_digest(gap_results: list[GapMatchResult]) -> str:
+    """Stable sha256 over sorted gap outcomes — identical inputs produce identical digest."""
+    import hashlib
+
+    lines = sorted(
+        f"{r.case_path}|{r.control_id}|{r.expected_status}|{r.expected_anchor_line!r}|{r.detected}"
+        for r in gap_results
+    )
+    return hashlib.sha256("\n".join(lines).encode("utf-8")).hexdigest()
 
 
 def _gap_is_detected(
@@ -135,6 +166,8 @@ def _build_adjudication_list(
                     control_id=vf.control_id,
                     rule_id=vf.rule_id,
                     anchor_line=vf.anchor_line,
+                    category=vf.category,
+                    source_format=case_result.source_format,
                 )
             )
     return extra
@@ -211,7 +244,8 @@ def compute_metrics(
                 cat_detected.setdefault(gap.category, 0)
                 cat_detected[gap.category] += 1
 
-        adjudication.extend(_build_adjudication_list(cr, cf, anchor_line_tolerance))
+        adj_list = _build_adjudication_list(cr, cf, anchor_line_tolerance)
+        adjudication.extend(adj_list)
 
         # Not-assessable accounting (aggregate per format)
         if cr.coverage_report is not None:
@@ -259,6 +293,39 @@ def compute_metrics(
         for fmt, v in sorted(na_by_fmt.items())
     ]
 
+    # WO-046: collect FP counts per format/category from enriched adjudication entries
+    fp_by_fmt: dict[str, int] = {}
+    fp_by_cat: dict[str, int] = {}
+    for entry in adjudication:
+        if entry.source_format:
+            fp_by_fmt[entry.source_format] = fp_by_fmt.get(entry.source_format, 0) + 1
+        if entry.category:
+            fp_by_cat[entry.category] = fp_by_cat.get(entry.category, 0) + 1
+
+    # WO-046: precision = TP / (TP + FP) per format
+    all_fmts = set(list(fmt_gaps.keys()) + list(fp_by_fmt.keys()))
+    precision_by_fmt: dict[str, float] = {
+        fmt: (
+            (fmt_detected.get(fmt, 0) / (fmt_detected.get(fmt, 0) + fp_by_fmt.get(fmt, 0)))
+            if (fmt_detected.get(fmt, 0) + fp_by_fmt.get(fmt, 0)) > 0
+            else float("nan")
+        )
+        for fmt in all_fmts
+    }
+
+    # WO-046: precision = TP / (TP + FP) per category
+    all_cats = set(list(cat_gaps.keys()) + list(fp_by_cat.keys()))
+    precision_by_cat: dict[str, float] = {
+        cat: (
+            (cat_detected.get(cat, 0) / (cat_detected.get(cat, 0) + fp_by_cat.get(cat, 0)))
+            if (cat_detected.get(cat, 0) + fp_by_cat.get(cat, 0)) > 0
+            else float("nan")
+        )
+        for cat in all_cats
+    }
+
+    digest = _compute_reproducibility_digest(gap_results)
+
     return BenchmarkMetrics(
         total_seeded_gaps=total_gaps,
         total_detected=total_detected,
@@ -272,4 +339,14 @@ def compute_metrics(
         latency_p95_ms=p95,
         not_assessable_by_format=na_stats_list,
         case_errors=case_errors,
+        gaps_by_format=dict(fmt_gaps),
+        detected_by_format=dict(fmt_detected),
+        gaps_by_category=dict(cat_gaps),
+        detected_by_category=dict(cat_detected),
+        false_positive_count=len(adjudication),
+        false_positive_by_format=fp_by_fmt,
+        false_positive_by_category=fp_by_cat,
+        precision_by_format=precision_by_fmt,
+        precision_by_category=precision_by_cat,
+        reproducibility_digest=digest,
     )
