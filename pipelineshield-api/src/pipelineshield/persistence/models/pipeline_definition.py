@@ -13,7 +13,8 @@ from __future__ import annotations
 import uuid
 from datetime import datetime
 
-from sqlalchemy import DateTime, ForeignKey, Integer, String, Text, func
+import sqlalchemy as sa
+from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, String, Text, func
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -86,6 +87,16 @@ class PipelineDefinition(Base):
         Integer,
         nullable=False,
         comment="Number of lines in the original masked definition.",
+    )
+    is_sample: Mapped[bool] = mapped_column(
+        Boolean,
+        nullable=False,
+        default=False,
+        server_default=sa.text("false"),
+        comment=(
+            "True for bundled demo/sample pipelines that must be excluded "
+            "from all posture aggregate and rollup calculations."
+        ),
     )
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
