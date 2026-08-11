@@ -84,3 +84,10 @@
 - **Files:** 8 (+0/-0)
 - **Duration:** 819ss
 - **Approach:** Implemented reproducible catalogue-pinned scoring via a pure ScoringEngine service injected with an immutable CatalogueSnapshot frozen at request start. Migration 0007 adds a composite index on (catalogue_version_id, created_at DESC). The ScoringEngine uses stable sorted iteration (sorted by category.id, control.id) to guarantee determinism; zero-denominator (all categories fully-NA) returns an unscorable result with no ZeroDivisionError. AnalysisOrchestrator resolves the active catalogue snapshot exactly once, passes catalogue_version_id to _persist, and includes it in AnalysisResponse.
+
+## WO-037: User Story: WO-037 - Deny-by-default AuthzGuard with three-layer persona enforcement
+- **Status:** completed
+- **Commit:** `11d0f84`
+- **Files:** 1 (+0/-0)
+- **Duration:** 609ss
+- **Approach:** N/A
