@@ -33,6 +33,7 @@ USERS = {
     "devops_engineer": uuid.UUID("00000000-0000-0000-0001-000000000002"),
     "devsecops_engineer": uuid.UUID("00000000-0000-0000-0001-000000000003"),
     "engineering_manager": uuid.UUID("00000000-0000-0000-0001-000000000004"),
+    "appsec_lead": uuid.UUID("00000000-0000-0000-0001-000000000005"),
 }
 SAMPLE_PIPELINE_ID = uuid.UUID("00000000-0000-0000-0002-000000000001")
 
@@ -116,6 +117,12 @@ def seed_baseline(session: Session) -> dict[str, object]:
             "sub|manager_demo",
             "morgan.mgr@example.com",
             "Morgan (Engineering Manager)",
+        ),
+        (
+            "appsec_lead",
+            "sub|appsec_demo",
+            "jordan.sec@example.com",
+            "Jordan (AppSec Lead)",
         ),
     ]
 

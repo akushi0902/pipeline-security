@@ -35,3 +35,10 @@
 - **Files:** 5 (+0/-0)
 - **Duration:** 1024ss
 - **Approach:** Implemented a pure, framework-free analysis module with an ordered immutable pattern registry (6 explicit RedactionPattern entries + Shannon-entropy detector) and a single-pass non-overlapping masking algorithm. The redactor collects all regex spans plus high-entropy candidates, resolves overlaps by (start, registry_index) order, and applies a newline-preserving length-exact mask (_make_mask). RedactedDoc is a frozen Pydantic model with redaction_map excluded from serialisation (Field(exclude=True)). A ThreadPoolExecutor timeout guard prevents catastrophic-backtracking DoS. Structured logging emits per-pattern counts only.
+
+## WO-010: User Story: WO-010 - Catalogue Read and Version-Creating PATCH Endpoints
+- **Status:** completed
+- **Commit:** `08a6a75`
+- **Files:** 15 (+1370/-5)
+- **Duration:** 571ss
+- **Approach:** Created the full catalogue API stack: Pydantic v2 schemas with strict extra='forbid' on ChangeFields, a deny-by-default AuthzGuard with PERSONA_CAPABILITIES map, a CatalogueService that applies change ops in-memory then revalidates through CatalogueSnapshot, and a thin FastAPI router. All three writes (new version INSERT, predecessor status UPDATE via new mark_superseded method, audit event INSERT) flush inside the caller's transaction so a rollback cleans them all up. Rationale text is redacted via the WO-002 redactor before being stored in change_detail. Tests use FastAPI TestClient with dep overrides for session and actor.

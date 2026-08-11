@@ -1,9 +1,10 @@
 """CatalogueRepository — abstract interface and SQLAlchemy 2.0 implementation.
 
-All writes go through create_version which only ever issues INSERT statements.
-No code path in this module may issue UPDATE or DELETE against an existing
-control_catalogue_version row — that invariant is enforced at the repository
-boundary and verified by the event-listener test in test_catalogue_repository.
+``create_version`` only ever issues INSERT statements.
+``mark_superseded`` is the single permitted UPDATE path; it touches only the
+``status`` column (the snapshot content remains immutable).  WO-10 adds this
+transition guard so predecessor rows are marked superseded atomically within
+the same transaction as the new version INSERT.
 """
 from __future__ import annotations
 
@@ -50,7 +51,15 @@ class CatalogueRepository(ABC):
 
         Validates the snapshot, computes the content checksum, and inserts a new
         row.  Raises CatalogueVersionConflictError if *version* is already used.
-        Never issues UPDATE or DELETE against an existing row.
+        """
+
+    @abstractmethod
+    def mark_superseded(self, row_id: uuid.UUID) -> None:
+        """Transition a version's status from 'active' to 'superseded'.
+
+        This is the only UPDATE permitted against this table; it touches the
+        ``status`` column only.  Idempotent if already superseded.
+        Raises ValueError if *row_id* is not found.
         """
 
 
@@ -121,3 +130,12 @@ class SQLAlchemyCatalogueRepository(CatalogueRepository):
             },
         )
         return row
+
+    def mark_superseded(self, row_id: uuid.UUID) -> None:
+        row = self._session.get(ControlCatalogueVersion, row_id)
+        if row is None:
+            raise ValueError(f"ControlCatalogueVersion {row_id!r} not found.")
+        if row.status == "superseded":
+            return  # idempotent
+        row.status = "superseded"
+        self._session.flush()
