@@ -95,6 +95,7 @@ PERSONA_CAPABILITIES: dict[str, frozenset[str]] = {
         "catalogue:read",
         "analysis:create",
         "analysis:read:own",
+        "architecture:read",
         "dashboard:read",
     }),
     # devops_engineer: read all analyses in workspace; can export; no catalogue write.
@@ -103,6 +104,7 @@ PERSONA_CAPABILITIES: dict[str, frozenset[str]] = {
         "analysis:create",
         "analysis:read:own",
         "analysis:read:all",
+        "architecture:read",
         "export:create",
         "dashboard:read",
     }),
@@ -114,6 +116,7 @@ PERSONA_CAPABILITIES: dict[str, frozenset[str]] = {
         "analysis:create",
         "analysis:read:own",
         "analysis:read:all",
+        "architecture:read",
         "finding:read:all",
         "export:create",
         "dashboard:read",
@@ -127,6 +130,7 @@ PERSONA_CAPABILITIES: dict[str, frozenset[str]] = {
         "analysis:create",
         "analysis:read:own",
         "analysis:read:all",
+        "architecture:read",
         "finding:read:all",
         "export:create",
         "dashboard:read",
@@ -137,6 +141,7 @@ PERSONA_CAPABILITIES: dict[str, frozenset[str]] = {
     "engineering_manager": frozenset({
         "catalogue:read",
         "analysis:read:summary",
+        "architecture:read",
         "dashboard:read",
     }),
 }
