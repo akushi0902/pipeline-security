@@ -42,3 +42,10 @@
 - **Files:** 15 (+1370/-5)
 - **Duration:** 571ss
 - **Approach:** Created the full catalogue API stack: Pydantic v2 schemas with strict extra='forbid' on ChangeFields, a deny-by-default AuthzGuard with PERSONA_CAPABILITIES map, a CatalogueService that applies change ops in-memory then revalidates through CatalogueSnapshot, and a thin FastAPI router. All three writes (new version INSERT, predecessor status UPDATE via new mark_superseded method, audit event INSERT) flush inside the caller's transaction so a rollback cleans them all up. Rationale text is redacted via the WO-002 redactor before being stored in change_detail. Tests use FastAPI TestClient with dep overrides for session and actor.
+
+## WO-036: User Story: WO-036 - OIDC PKCE login with server-side Redis session lifecycle
+- **Status:** completed
+- **Commit:** `bc377a5`
+- **Files:** 15 (+0/-0)
+- **Duration:** 980ss
+- **Approach:** Implemented the full backend OIDC PKCE authentication stack. AuthConfig uses pydantic-settings and fails closed if any required secret (oidc_issuer, oidc_client_id, oidc_client_secret, oidc_redirect_uri, redis_url) is absent. RedisSessionStore stores opaque session IDs as Redis hashes with sliding EXPIRE on every read and application-code absolute-lifetime enforcement. RedisLoginStateStore keeps OIDC state params (nonce, code_challenge) for 5 minutes with atomic single-use pop (replay protection). AuthModule orchestrates begin_login (state/nonce generation, PKCE challenge validation, IdP URL build), complete_callback (state pop, S256 server-side PKCE verification, code exchange via httpx, id_token verification via PyJWT+JWKS, JIT app_user upsert, role_binding resolution, session creation, audit events), resolve_session (sliding TTL refresh), and terminate_session. The thin AuthRouter delegates everything to AuthModule, sets httpOnly/Secure/SameSite=Lax cookies, and maps errors to RFC 7807 structured bodies. Migration 0004 adds idp_subject (unique) and last_login_at to app_user with an explicit comment forbidding password columns.
