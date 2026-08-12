@@ -1,8 +1,15 @@
 import { useState } from 'react';
 import type { ProblemDetail } from '../api/problem';
-import type { AnalysisCreateResponse, CiFormat } from '../api/generated/ingestion';
+import type {
+  AnalysisCreateResponse,
+  CiFormat,
+} from '../api/generated/ingestion';
 import { PAYLOAD_MAX_BYTES } from '../api/generated/ingestion';
-import { submitFile, submitText, confirmFormat } from '../api/uploadClient';
+import {
+  submitFile,
+  submitText,
+  confirmFormat,
+} from '../api/uploadClient';
 import { DropZone } from '../components/DropZone';
 import { PasteEditor } from '../components/PasteEditor';
 import { MaskingNotice } from '../components/MaskingNotice';
@@ -37,10 +44,19 @@ type InputSource =
 // ---------------------------------------------------------------------------
 
 export function UploadView() {
-  const [viewState, setViewState] = useState<ViewState>({ stage: 'idle' });
+  const [viewState, setViewState] = useState<ViewState>({
+    stage: 'idle',
+  });
+
   const [inputMode, setInputMode] = useState<InputMode>('file');
-  const [source, setSource] = useState<InputSource>({ kind: 'none' });
-  const [selectedFileName, setSelectedFileName] = useState<string | null>(null);
+
+  const [source, setSource] = useState<InputSource>({
+    kind: 'none',
+  });
+
+  const [selectedFileName, setSelectedFileName] = useState<string | null>(
+    null,
+  );
 
   const isIdle = viewState.stage === 'idle';
   const isSubmitting = viewState.stage === 'submitting';
@@ -54,44 +70,73 @@ export function UploadView() {
       (source.kind === 'text' && source.content.trim().length > 0));
 
   const handleFileReady = (file: File) => {
-    setSource({ kind: 'file', file });
+    setSource({
+      kind: 'file',
+      file,
+    });
+
     setSelectedFileName(file.name);
-    setViewState({ stage: 'idle' });
+
+    setViewState({
+      stage: 'idle',
+    });
   };
 
   const handleFileError = (message: string) => {
-    setViewState({ stage: 'idle', inputError: message });
-    setSource({ kind: 'none' });
+    setViewState({
+      stage: 'idle',
+      inputError: message,
+    });
+
+    setSource({
+      kind: 'none',
+    });
+
     setSelectedFileName(null);
   };
 
   const handleTextChange = (text: string) => {
-    setSource({ kind: 'text', content: text });
+    setSource({
+      kind: 'text',
+      content: text,
+    });
 
     if (isIdle && viewState.inputError) {
-      setViewState({ stage: 'idle' });
+      setViewState({
+        stage: 'idle',
+      });
     }
   };
 
   const handleSubmit = async () => {
-    if (!canSubmit) return;
+    if (!canSubmit) {
+      return;
+    }
 
-    // Client-side size validation (UX only; server revalidates authoritatively)
+    // Client-side size validation.
+    // The server remains authoritative.
     if (source.kind === 'text') {
-      const byteLen = new TextEncoder().encode(source.content).length;
+      const byteLen = new TextEncoder()
+        .encode(source.content)
+        .length;
 
       if (byteLen > PAYLOAD_MAX_BYTES) {
         setViewState({
           stage: 'idle',
-          inputError: `Content exceeds 512 KB (${(byteLen / 1024).toFixed(
+          inputError: `Content exceeds 512 KB (${(
+            byteLen / 1024
+          ).toFixed(
             1,
           )} KB). The server revalidates authoritatively.`,
         });
+
         return;
       }
     }
 
-    setViewState({ stage: 'submitting' });
+    setViewState({
+      stage: 'submitting',
+    });
 
     const result =
       source.kind === 'file'
@@ -100,10 +145,16 @@ export function UploadView() {
           ? await submitText(source.content)
           : null;
 
-    if (result === null) return;
+    if (result === null) {
+      return;
+    }
 
     if (!result.ok) {
-      setViewState({ stage: 'error', error: result.error });
+      setViewState({
+        stage: 'error',
+        error: result.error,
+      });
+
       return;
     }
 
@@ -113,6 +164,7 @@ export function UploadView() {
         analysisId: result.data.analysis_id,
         detectedFormat: result.data.detected_format,
       });
+
       return;
     }
 
@@ -123,20 +175,30 @@ export function UploadView() {
   };
 
   const handleFormatConfirm = async (format: CiFormat) => {
-    if (viewState.stage !== 'awaiting-confirmation') return;
-
-    const { analysisId } = viewState;
-
-    setViewState({ stage: 'submitting' });
-
-    const result = await confirmFormat(analysisId, format);
-
-    if (!result.ok) {
-      setViewState({ stage: 'error', error: result.error });
+    if (viewState.stage !== 'awaiting-confirmation') {
       return;
     }
 
-    // Re-fetch or construct a synthetic done state from confirmation response
+    const { analysisId } = viewState;
+
+    setViewState({
+      stage: 'submitting',
+    });
+
+    const result = await confirmFormat(
+      analysisId,
+      format,
+    );
+
+    if (!result.ok) {
+      setViewState({
+        stage: 'error',
+        error: result.error,
+      });
+
+      return;
+    }
+
     setViewState({
       stage: 'done',
       result: {
@@ -154,8 +216,14 @@ export function UploadView() {
   };
 
   const handleReset = () => {
-    setViewState({ stage: 'idle' });
-    setSource({ kind: 'none' });
+    setViewState({
+      stage: 'idle',
+    });
+
+    setSource({
+      kind: 'none',
+    });
+
     setSelectedFileName(null);
   };
 
@@ -170,18 +238,17 @@ export function UploadView() {
         </h1>
 
         <p className="mt-1 text-sm text-text-secondary">
-          Upload or paste a CI/CD pipeline definition to run a security posture
-          analysis.
+          Upload or paste a CI/CD pipeline definition to run a
+          security posture analysis.
         </p>
       </header>
 
       {/* Non-dismissible masking notice */}
       <MaskingNotice />
 
-      {/* Main content area */}
       <div className="mt-6 space-y-6">
-        {/* Input form — shown only when idle */}
-        {(isIdle || viewState.stage === 'idle') && !isDone && (
+        {/* Input form */}
+        {isIdle && !isDone && (
           <>
             {/* Tab selector */}
             <div
@@ -199,9 +266,16 @@ export function UploadView() {
                   type="button"
                   onClick={() => {
                     setInputMode(mode);
-                    setSource({ kind: 'none' });
+
+                    setSource({
+                      kind: 'none',
+                    });
+
                     setSelectedFileName(null);
-                    setViewState({ stage: 'idle' });
+
+                    setViewState({
+                      stage: 'idle',
+                    });
                   }}
                   className={[
                     'flex-1 rounded px-3 py-2 text-sm font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-border-focus',
@@ -210,12 +284,14 @@ export function UploadView() {
                       : 'text-text-secondary hover:text-text-primary',
                   ].join(' ')}
                 >
-                  {mode === 'file' ? 'Upload file' : 'Paste text'}
+                  {mode === 'file'
+                    ? 'Upload file'
+                    : 'Paste text'}
                 </button>
               ))}
             </div>
 
-            {/* File tab panel */}
+            {/* File tab */}
             <div
               role="tabpanel"
               id="tab-panel-file"
@@ -240,7 +316,7 @@ export function UploadView() {
               )}
             </div>
 
-            {/* Paste tab panel */}
+            {/* Paste tab */}
             <div
               role="tabpanel"
               id="tab-panel-paste"
@@ -249,7 +325,11 @@ export function UploadView() {
             >
               {inputMode === 'paste' && (
                 <PasteEditor
-                  value={source.kind === 'text' ? source.content : ''}
+                  value={
+                    source.kind === 'text'
+                      ? source.content
+                      : ''
+                  }
                   onChange={handleTextChange}
                   disabled={isSubmitting}
                 />
@@ -259,12 +339,15 @@ export function UploadView() {
             {/* Inline input error */}
             {viewState.stage === 'idle' &&
               viewState.inputError != null && (
-                <p role="alert" className="text-sm text-error">
+                <p
+                  role="alert"
+                  className="text-sm text-error"
+                >
                   {viewState.inputError}
                 </p>
               )}
 
-            {/* Submit button */}
+            {/* Submit */}
             <button
               type="button"
               onClick={handleSubmit}
@@ -282,10 +365,10 @@ export function UploadView() {
           </>
         )}
 
-        {/* Stage progress panel */}
+        {/* Stage progress */}
         <StageProgressPanel active={isSubmitting} />
 
-        {/* Format confirmation dialog */}
+        {/* Format confirmation */}
         {isAwaitingConfirmation &&
           viewState.stage === 'awaiting-confirmation' && (
             <FormatConfirmationDialog
@@ -296,7 +379,7 @@ export function UploadView() {
             />
           )}
 
-        {/* Success state */}
+        {/* Success */}
         {isDone && viewState.stage === 'done' && (
           <div
             role="status"
@@ -328,14 +411,18 @@ export function UploadView() {
                   Analysis complete
                 </p>
 
-                {/* Keep the success summary focused on the analysis result.
-                    The advisory disclaimer is rendered once in the footer
-                    below to avoid duplicate messaging. */}
                 <p className="mt-1 text-sm text-text-secondary">
                   Format:{' '}
                   <strong className="text-text-primary">
                     {viewState.result.detected_format}
                   </strong>
+
+                  {viewState.result.advisory_disclaimer && (
+                    <>
+                      {' · '}
+                      {viewState.result.advisory_disclaimer}
+                    </>
+                  )}
                 </p>
 
                 {viewState.result.analysis_id && (
@@ -359,7 +446,7 @@ export function UploadView() {
           </div>
         )}
 
-        {/* Error state */}
+        {/* Error */}
         {viewState.stage === 'error' && (
           <ErrorPanel
             error={viewState.error}
@@ -367,21 +454,6 @@ export function UploadView() {
           />
         )}
       </div>
-
-      {/* Advisory disclaimer */}
-      {isDone &&
-        viewState.stage === 'done' &&
-        viewState.result.advisory_disclaimer && (
-          <footer
-            aria-label="Advisory disclaimer"
-            className="mt-8 rounded border border-border bg-surface-raised p-4"
-          >
-            <p className="text-xs text-text-secondary">
-              <strong>Advisory:</strong>{' '}
-              <span>{viewState.result.advisory_disclaimer}</span>
-            </p>
-          </footer>
-        )}
     </div>
   );
 }
