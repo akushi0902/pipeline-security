@@ -19,8 +19,8 @@ const BASE_CATALOGUE: CatalogueGetResponse = {
   created_by: 'seed@example.com',
   grade_bands: [{ grade: 'A', min_score: 90, max_score: 100 }],
   categories: [
-    { id: 'secrets', name: 'Secrets', weight: 60, enabled: true },
-    { id: 'sast', name: 'SAST', weight: 40, enabled: true },
+    { id: 'secrets', name: 'Secrets', weight: 70, enabled: true },
+    { id: 'sast', name: 'SAST', weight: 30, enabled: true },
   ],
   controls: [
     {
@@ -76,32 +76,37 @@ describe('STAGE_CATEGORY_WEIGHT', () => {
     const s = catalogueReducer(loadedState(), {
       type: 'STAGE_CATEGORY_WEIGHT',
       categoryId: 'secrets',
-      weight: 70,
+      weight: 80,
     });
-    expect(s.categoryDrafts['secrets']?.weight).toBe(70);
+
+    expect(s.categoryDrafts['secrets']?.weight).toBe(80);
   });
 
   it('removes draft when weight matches base', () => {
     let s = catalogueReducer(loadedState(), {
       type: 'STAGE_CATEGORY_WEIGHT',
       categoryId: 'secrets',
-      weight: 70,
+      weight: 80,
     });
+
     s = catalogueReducer(s, {
       type: 'STAGE_CATEGORY_WEIGHT',
       categoryId: 'secrets',
-      weight: 60, // back to base
+      weight: 70, // back to base
     });
+
     expect(s.categoryDrafts['secrets']).toBeUndefined();
   });
 
   it('clears fieldErrors when staging', () => {
     const withErrors = { ...loadedState(), fieldErrors: { x: 'err' } };
+
     const s = catalogueReducer(withErrors, {
       type: 'STAGE_CATEGORY_WEIGHT',
       categoryId: 'secrets',
-      weight: 50,
+      weight: 60,
     });
+
     expect(s.fieldErrors).toEqual({});
   });
 });
@@ -116,6 +121,7 @@ describe('TOGGLE_CATEGORY_ENABLED', () => {
       type: 'TOGGLE_CATEGORY_ENABLED',
       categoryId: 'secrets',
     });
+
     expect(s.categoryDrafts['secrets']?.enabled).toBe(false);
   });
 
@@ -124,10 +130,12 @@ describe('TOGGLE_CATEGORY_ENABLED', () => {
       type: 'TOGGLE_CATEGORY_ENABLED',
       categoryId: 'secrets',
     });
+
     s = catalogueReducer(s, {
       type: 'TOGGLE_CATEGORY_ENABLED',
       categoryId: 'secrets',
     });
+
     expect(s.categoryDrafts['secrets']).toBeUndefined();
   });
 });
@@ -143,6 +151,7 @@ describe('STAGE_CONTROL_SEVERITY', () => {
       controlId: 'ctrl-1',
       severity: 'high',
     });
+
     expect(s.controlDrafts['ctrl-1']?.severity).toBe('high');
   });
 
@@ -152,11 +161,13 @@ describe('STAGE_CONTROL_SEVERITY', () => {
       controlId: 'ctrl-1',
       severity: 'high',
     });
+
     s = catalogueReducer(s, {
       type: 'STAGE_CONTROL_SEVERITY',
       controlId: 'ctrl-1',
-      severity: 'critical', // back to base
+      severity: 'critical',
     });
+
     expect(s.controlDrafts['ctrl-1']).toBeUndefined();
   });
 });
@@ -172,7 +183,11 @@ describe('STAGE_REFERENCE_TOOLS', () => {
       controlId: 'ctrl-1',
       tools: ['gitleaks', 'trivy'],
     });
-    expect(s.controlDrafts['ctrl-1']?.reference_tools).toEqual(['gitleaks', 'trivy']);
+
+    expect(s.controlDrafts['ctrl-1']?.reference_tools).toEqual([
+      'gitleaks',
+      'trivy',
+    ]);
   });
 });
 
@@ -185,10 +200,18 @@ describe('RESET_STAGED', () => {
     let s = catalogueReducer(loadedState(), {
       type: 'STAGE_CATEGORY_WEIGHT',
       categoryId: 'secrets',
-      weight: 50,
+      weight: 60,
     });
-    s = catalogueReducer(s, { type: 'SET_RATIONALE', rationale: 'test' });
-    s = catalogueReducer(s, { type: 'RESET_STAGED' });
+
+    s = catalogueReducer(s, {
+      type: 'SET_RATIONALE',
+      rationale: 'test',
+    });
+
+    s = catalogueReducer(s, {
+      type: 'RESET_STAGED',
+    });
+
     expect(s.categoryDrafts).toEqual({});
     expect(s.controlDrafts).toEqual({});
     expect(s.rationale).toBe('');
@@ -204,15 +227,21 @@ describe('REBASE_AFTER_CONFLICT', () => {
     let s = catalogueReducer(loadedState(), {
       type: 'STAGE_CATEGORY_WEIGHT',
       categoryId: 'secrets',
-      weight: 55,
+      weight: 65,
     });
-    const newBase: CatalogueGetResponse = { ...BASE_CATALOGUE, version: 3 };
+
+    const newBase: CatalogueGetResponse = {
+      ...BASE_CATALOGUE,
+      version: 3,
+    };
+
     s = catalogueReducer(s, {
       type: 'REBASE_AFTER_CONFLICT',
       payload: newBase,
     });
+
     expect(s.baseSnapshot?.version).toBe(3);
-    expect(s.categoryDrafts['secrets']?.weight).toBe(55);
+    expect(s.categoryDrafts['secrets']?.weight).toBe(65);
     expect(s.conflictDetected).toBe(false);
   });
 });
@@ -224,9 +253,14 @@ describe('REBASE_AFTER_CONFLICT', () => {
 describe('SUBMIT_START', () => {
   it('sets isSubmitting and clears errors', () => {
     const s = catalogueReducer(
-      { ...loadedState(), fieldErrors: { x: 'err' }, networkError: 'oops' },
+      {
+        ...loadedState(),
+        fieldErrors: { x: 'err' },
+        networkError: 'oops',
+      },
       { type: 'SUBMIT_START' },
     );
+
     expect(s.isSubmitting).toBe(true);
     expect(s.fieldErrors).toEqual({});
     expect(s.networkError).toBeNull();
@@ -238,15 +272,27 @@ describe('SUBMIT_SUCCESS', () => {
     let s = catalogueReducer(loadedState(), {
       type: 'STAGE_CATEGORY_WEIGHT',
       categoryId: 'secrets',
-      weight: 55,
+      weight: 65,
     });
-    s = catalogueReducer(s, { type: 'SET_RATIONALE', rationale: 'reason' });
-    s = catalogueReducer(s, { type: 'SUBMIT_START' });
+
+    s = catalogueReducer(s, {
+      type: 'SET_RATIONALE',
+      rationale: 'reason',
+    });
+
+    s = catalogueReducer(s, {
+      type: 'SUBMIT_START',
+    });
+
     s = catalogueReducer(s, {
       type: 'SUBMIT_SUCCESS',
       version: 2,
-      newSnapshot: { ...BASE_CATALOGUE, version: 2 },
+      newSnapshot: {
+        ...BASE_CATALOGUE,
+        version: 2,
+      },
     });
+
     expect(s.isSubmitting).toBe(false);
     expect(s.submitSuccess?.version).toBe(2);
     expect(s.categoryDrafts).toEqual({});
@@ -256,11 +302,22 @@ describe('SUBMIT_SUCCESS', () => {
 
 describe('SUBMIT_FAILURE_409', () => {
   it('sets conflictDetected and updates base', () => {
-    const newBase: CatalogueGetResponse = { ...BASE_CATALOGUE, version: 5 };
+    const newBase: CatalogueGetResponse = {
+      ...BASE_CATALOGUE,
+      version: 5,
+    };
+
     const s = catalogueReducer(
-      { ...loadedState(), isSubmitting: true },
-      { type: 'SUBMIT_FAILURE_409', newBase },
+      {
+        ...loadedState(),
+        isSubmitting: true,
+      },
+      {
+        type: 'SUBMIT_FAILURE_409',
+        newBase,
+      },
     );
+
     expect(s.conflictDetected).toBe(true);
     expect(s.baseSnapshot?.version).toBe(5);
     expect(s.isSubmitting).toBe(false);
@@ -269,7 +326,10 @@ describe('SUBMIT_FAILURE_409', () => {
 
 describe('SUBMIT_FAILURE_403', () => {
   it('sets permissionDenied', () => {
-    const s = catalogueReducer(loadedState(), { type: 'SUBMIT_FAILURE_403' });
+    const s = catalogueReducer(loadedState(), {
+      type: 'SUBMIT_FAILURE_403',
+    });
+
     expect(s.permissionDenied).toBe(true);
   });
 });
@@ -278,9 +338,12 @@ describe('SUBMIT_FAILURE_400', () => {
   it('sets fieldErrors', () => {
     const s = catalogueReducer(loadedState(), {
       type: 'SUBMIT_FAILURE_400',
-      fieldErrors: { 'categories.secrets.weight': 'Too high' },
+      fieldErrors: {
+        'categories.secrets.weight': 'Too high',
+      },
       detail: 'Validation error',
     });
+
     expect(s.fieldErrors['categories.secrets.weight']).toBe('Too high');
     expect(s.isSubmitting).toBe(false);
   });
@@ -292,6 +355,7 @@ describe('SUBMIT_FAILURE_400', () => {
 
 describe('selectEnabledWeightTotal', () => {
   it('sums all enabled category weights from base', () => {
+    // Secrets = 70 + SAST = 30
     expect(selectEnabledWeightTotal(loadedState())).toBe(100);
   });
 
@@ -300,15 +364,18 @@ describe('selectEnabledWeightTotal', () => {
       type: 'TOGGLE_CATEGORY_ENABLED',
       categoryId: 'sast',
     });
-    expect(selectEnabledWeightTotal(s)).toBe(60);
+
+    expect(selectEnabledWeightTotal(s)).toBe(70);
   });
 
   it('reflects staged weight changes', () => {
     const s = catalogueReducer(loadedState(), {
       type: 'STAGE_CATEGORY_WEIGHT',
       categoryId: 'secrets',
-      weight: 70,
+      weight: 80,
     });
+
+    // Secrets = 80 + SAST = 30
     expect(selectEnabledWeightTotal(s)).toBe(110);
   });
 
@@ -330,13 +397,15 @@ describe('selectDiff', () => {
     const s = catalogueReducer(loadedState(), {
       type: 'STAGE_CATEGORY_WEIGHT',
       categoryId: 'secrets',
-      weight: 70,
+      weight: 80,
     });
+
     const diff = selectDiff(s);
+
     expect(diff).toHaveLength(1);
     expect(diff[0]?.path).toBe('categories.secrets.weight');
-    expect(diff[0]?.current_value).toBe(60);
-    expect(diff[0]?.proposed_value).toBe(70);
+    expect(diff[0]?.current_value).toBe(70);
+    expect(diff[0]?.proposed_value).toBe(80);
   });
 
   it('returns diff entry for enabled toggle', () => {
@@ -344,8 +413,12 @@ describe('selectDiff', () => {
       type: 'TOGGLE_CATEGORY_ENABLED',
       categoryId: 'sast',
     });
+
     const diff = selectDiff(s);
-    expect(diff.some((d) => d.path === 'categories.sast.enabled')).toBe(true);
+
+    expect(
+      diff.some((d) => d.path === 'categories.sast.enabled'),
+    ).toBe(true);
   });
 
   it('returns diff entry for severity change', () => {
@@ -354,16 +427,21 @@ describe('selectDiff', () => {
       controlId: 'ctrl-1',
       severity: 'medium',
     });
+
     const diff = selectDiff(s);
-    expect(diff.some((d) => d.path === 'controls.ctrl-1.severity')).toBe(true);
+
+    expect(
+      diff.some((d) => d.path === 'controls.ctrl-1.severity'),
+    ).toBe(true);
   });
 
   it('staged value matching base produces no diff entry', () => {
     const s = catalogueReducer(loadedState(), {
       type: 'STAGE_CATEGORY_WEIGHT',
       categoryId: 'secrets',
-      weight: 60, // same as base
+      weight: 70,
     });
+
     expect(selectDiff(s)).toHaveLength(0);
   });
 });
@@ -381,50 +459,68 @@ describe('selectCanSubmit', () => {
     const s = catalogueReducer(loadedState(), {
       type: 'STAGE_CATEGORY_WEIGHT',
       categoryId: 'secrets',
-      weight: 70, // total becomes 110
+      weight: 80,
     });
-    expect(selectCanSubmit({ ...s, rationale: 'reason' })).toBe(false);
+
+    // 80 + 30 = 110
+    expect(
+      selectCanSubmit({
+        ...s,
+        rationale: 'reason',
+      }),
+    ).toBe(false);
   });
 
   it('returns false when rationale is empty', () => {
-    const s = catalogueReducer(loadedState(), {
+    // 65 + 35 = 100, so the only reason submission is blocked
+    // is the missing rationale.
+    let s = catalogueReducer(loadedState(), {
       type: 'STAGE_CATEGORY_WEIGHT',
       categoryId: 'secrets',
-      weight: 60, // keeps total = 100 via staged toggle, but actually same as base...
+      weight: 65,
     });
-    // Need a real change that keeps total = 100
-    const s2 = catalogueReducer(
-      catalogueReducer(loadedState(), {
-        type: 'STAGE_CATEGORY_WEIGHT',
-        categoryId: 'secrets',
-        weight: 55,
+
+    s = catalogueReducer(s, {
+      type: 'STAGE_CATEGORY_WEIGHT',
+      categoryId: 'sast',
+      weight: 35,
+    });
+
+    expect(
+      selectCanSubmit({
+        ...s,
+        rationale: '',
       }),
-      { type: 'STAGE_CATEGORY_WEIGHT', categoryId: 'sast', weight: 45 },
-    );
-    expect(selectCanSubmit({ ...s2, rationale: '' })).toBe(false);
+    ).toBe(false);
   });
 
   it('returns false when isSubmitting', () => {
-    const s = catalogueReducer(loadedState(), { type: 'SUBMIT_START' });
+    const s = catalogueReducer(loadedState(), {
+      type: 'SUBMIT_START',
+    });
+
     expect(selectCanSubmit(s)).toBe(false);
   });
 
   it('returns true when diff non-empty + total 100 + rationale set', () => {
-    // secrets 55 + sast 45 = 100, both enabled
+    // Secrets = 65 + SAST = 35 = 100
     let s = catalogueReducer(loadedState(), {
       type: 'STAGE_CATEGORY_WEIGHT',
       categoryId: 'secrets',
-      weight: 55,
+      weight: 65,
     });
+
     s = catalogueReducer(s, {
       type: 'STAGE_CATEGORY_WEIGHT',
       categoryId: 'sast',
-      weight: 45,
+      weight: 35,
     });
+
     s = catalogueReducer(s, {
       type: 'SET_RATIONALE',
       rationale: 'rebalancing weights',
     });
+
     expect(selectCanSubmit(s)).toBe(true);
   });
 });
