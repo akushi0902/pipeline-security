@@ -201,13 +201,16 @@ jobs:
   # ============================================================
   #
   # NOTE ON FIX:
-  # The original workflow combined `--dry-run=client` with
-  # `--validate=false`. Disabling client-side schema validation
-  # causes kubectl to fall back to fetching the OpenAPI schema
-  # from a live API server, which is why it tried (and failed)
-  # to reach http://localhost:8080 even though no cluster exists
-  # in this job. Removing `--validate=false` keeps validation
-  # fully client-side and fixes the "connection refused" error.
+  # `kubectl apply --dry-run=client` still needs to talk to a
+  # live API server to build its RESTMapper / discover resource
+  # types and (when validate=true) fetch the OpenAPI schema.
+  # There is no flag combination that makes it fully offline, so
+  # in a job with no cluster it will always fail with a
+  # "connection refused" style error, regardless of --validate.
+  #
+  # Fix: use kubeconform, a standalone Kubernetes manifest
+  # validator that checks manifests against bundled/downloaded
+  # OpenAPI schemas without needing any live cluster at all.
   # This job also no longer depends on build-images, since it
   # only needs the repo checkout to validate YAML manifests,
   # letting it run in parallel and speeding up the pipeline.
@@ -225,24 +228,23 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Setup kubectl
-        uses: azure/setup-kubectl@v4
-
+      - name: Install kubeconform
+        run: |
+          curl -sSLo kubeconform.tar.gz \
+            https://github.com/yannh/kubeconform/releases/latest/download/kubeconform-linux-amd64.tar.gz
+          tar -xzf kubeconform.tar.gz
+          chmod +x kubeconform
+          sudo mv kubeconform /usr/local/bin/kubeconform
+          kubeconform -v
       - name: Validate namespace manifest
         run: |
-          kubectl apply \
-            --dry-run=client \
-            -f k8s/namespace.yaml
+          kubeconform -strict -summary k8s/namespace.yaml
       - name: Validate backend manifest
         run: |
-          kubectl apply \
-            --dry-run=client \
-            -f k8s/backend.yaml
+          kubeconform -strict -summary k8s/backend.yaml
       - name: Validate frontend manifest
         run: |
-          kubectl apply \
-            --dry-run=client \
-            -f k8s/frontend.yaml
+          kubeconform -strict -summary k8s/frontend.yaml
       - name: Kubernetes validation summary
         run: |
           echo "=========================================="
