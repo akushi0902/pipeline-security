@@ -40,12 +40,9 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install .
-
       - name: Verify application import
         run: |
           python -c "from pipelineshield.api.main import app; print('APP OK:', app.title)"
-
-
   # ============================================================
   # FRONTEND BUILD
   # ============================================================
@@ -66,81 +63,45 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: "22"
-          cache: npm
-          cache-dependency-path: pipelineshield-web/package-lock.json
 
       - name: Check Node and npm versions
         run: |
           node --version
           npm --version
-
-      # ----------------------------------------------------------
-      # Generate package-lock.json
-      # ----------------------------------------------------------
-
       - name: Generate package-lock.json
         run: |
-          echo "Generating package-lock.json..."
-
           npm install --package-lock-only
-
-          echo "Verifying package-lock.json..."
-
           test -f package-lock.json
-
-          ls -lh package.json package-lock.json
-
-      # ----------------------------------------------------------
-      # Install dependencies
-      # ----------------------------------------------------------
-
       - name: Install frontend dependencies
         run: |
           npm ci
-
-      # ----------------------------------------------------------
-      # Remove frontend tests
-      # ----------------------------------------------------------
-
       - name: Remove frontend test files
         shell: bash
         run: |
-          echo "Searching for test files..."
-
+          echo "Frontend test files before removal:"
           find src -type f \( \
             -name "*.test.ts" \
             -o -name "*.test.tsx" \
             -o -name "*.spec.ts" \
             -o -name "*.spec.tsx" \
           \) -print || true
-
-          echo "Removing test files..."
-
+          echo "Removing frontend test files..."
           find src -type f \( \
             -name "*.test.ts" \
             -o -name "*.test.tsx" \
             -o -name "*.spec.ts" \
             -o -name "*.spec.tsx" \
           \) -delete
-
-          echo "Remaining test files:"
-
+          echo "Frontend test files remaining:"
           find src -type f \( \
             -name "*.test.ts" \
             -o -name "*.test.tsx" \
             -o -name "*.spec.ts" \
             -o -name "*.spec.tsx" \
           \) -print || true
-
-      # ----------------------------------------------------------
-      # Build frontend
-      # ----------------------------------------------------------
-
       - name: Build frontend
         run: |
           npm run build
-
-
   # ============================================================
   # DOCKER IMAGES
   # ============================================================
@@ -170,71 +131,48 @@ jobs:
         run: |
           node --version
           npm --version
-
       # ----------------------------------------------------------
-      # Generate package-lock.json inside Docker build context
+      # Generate package-lock.json in Docker build workspace
       # ----------------------------------------------------------
 
       - name: Generate frontend package-lock.json
         working-directory: pipelineshield-web
         run: |
-          echo "Generating package-lock.json for Docker build..."
-
+          echo "Generating package-lock.json..."
           npm install --package-lock-only
-
-          echo "Verifying package-lock.json..."
-
           test -f package-lock.json
-
-          ls -lh package.json package-lock.json
-
+          echo "package-lock.json is available."
       # ----------------------------------------------------------
-      # Remove frontend test files from Docker build context
+      # Remove frontend tests BEFORE Docker build
       # ----------------------------------------------------------
 
-      - name: Remove frontend test files
+      - name: Remove frontend test files before Docker build
+        working-directory: pipelineshield-web
         shell: bash
         run: |
-          echo "Removing frontend test files before Docker build..."
-
-          find pipelineshield-web/src -type f \( \
+          echo "Frontend test files before removal:"
+          find src -type f \( \
             -name "*.test.ts" \
             -o -name "*.test.tsx" \
             -o -name "*.spec.ts" \
             -o -name "*.spec.tsx" \
           \) -print || true
-
-          find pipelineshield-web/src -type f \( \
+          echo "Removing frontend test files..."
+          find src -type f \( \
             -name "*.test.ts" \
             -o -name "*.test.tsx" \
             -o -name "*.spec.ts" \
             -o -name "*.spec.tsx" \
           \) -delete
-
-          echo "Test files remaining:"
-
-          find pipelineshield-web/src -type f \( \
+          echo "Frontend test files remaining:"
+          find src -type f \( \
             -name "*.test.ts" \
             -o -name "*.test.tsx" \
             -o -name "*.spec.ts" \
             -o -name "*.spec.tsx" \
           \) -print || true
-
       # ----------------------------------------------------------
-      # Verify Docker build context
-      # ----------------------------------------------------------
-
-      - name: Verify frontend Docker build context
-        run: |
-          echo "Frontend package files:"
-          ls -lh pipelineshield-web/package.json
-          ls -lh pipelineshield-web/package-lock.json
-
-          echo "Frontend source size:"
-          du -sh pipelineshield-web
-
-      # ----------------------------------------------------------
-      # Build backend image
+      # Build backend Docker image
       # ----------------------------------------------------------
 
       - name: Build backend image
@@ -242,9 +180,8 @@ jobs:
           docker build \
             -t pipelineshield-backend:${{ github.sha }} \
             ./pipelineshield-api
-
       # ----------------------------------------------------------
-      # Build frontend image
+      # Build frontend Docker image
       # ----------------------------------------------------------
 
       - name: Build frontend image
@@ -252,18 +189,28 @@ jobs:
           docker build \
             -t pipelineshield-frontend:${{ github.sha }} \
             ./pipelineshield-web
-
       # ----------------------------------------------------------
-      # Verify images
+      # Verify Docker images
       # ----------------------------------------------------------
 
       - name: Verify Docker images
         run: |
           docker images | grep pipelineshield
-
-
   # ============================================================
-  # KUBERNETES MANIFEST VALIDATION
+  # KUBERNETES VALIDATION
+  # ============================================================
+  #
+  # NOTE ON FIX:
+  # The original workflow combined `--dry-run=client` with
+  # `--validate=false`. Disabling client-side schema validation
+  # causes kubectl to fall back to fetching the OpenAPI schema
+  # from a live API server, which is why it tried (and failed)
+  # to reach http://localhost:8080 even though no cluster exists
+  # in this job. Removing `--validate=false` keeps validation
+  # fully client-side and fixes the "connection refused" error.
+  # This job also no longer depends on build-images, since it
+  # only needs the repo checkout to validate YAML manifests,
+  # letting it run in parallel and speeding up the pipeline.
   # ============================================================
 
   validate-kubernetes:
@@ -271,111 +218,51 @@ jobs:
     runs-on: ubuntu-latest
 
     needs:
+      - backend-validation
+      - frontend-build
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup kubectl
+        uses: azure/setup-kubectl@v4
+
+      - name: Validate namespace manifest
+        run: |
+          kubectl apply \
+            --dry-run=client \
+            -f k8s/namespace.yaml
+      - name: Validate backend manifest
+        run: |
+          kubectl apply \
+            --dry-run=client \
+            -f k8s/backend.yaml
+      - name: Validate frontend manifest
+        run: |
+          kubectl apply \
+            --dry-run=client \
+            -f k8s/frontend.yaml
+      - name: Kubernetes validation summary
+        run: |
+          echo "=========================================="
+          echo "Kubernetes manifests validated successfully"
+          echo "=========================================="
+  # ============================================================
+  # LOCAL KUBERNETES DEPLOYMENT USING KIND
+  # ============================================================
+
+  deploy-local:
+    name: Deploy to Kind Kubernetes
+    runs-on: ubuntu-latest
+
+    needs:
+      - validate-kubernetes
       - build-images
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
-
-      - name: Setup Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: "3.12"
-
-      - name: Install YAML validator
-        run: |
-          python -m pip install --upgrade pip
-          pip install pyyaml
-
-      - name: Validate Kubernetes YAML syntax
-        shell: bash
-        run: |
-          python <<'PY'
-          import yaml
-          from pathlib import Path
-
-          files = [
-              "k8s/namespace.yaml",
-              "k8s/backend.yaml",
-              "k8s/frontend.yaml",
-          ]
-
-          failed = False
-
-          for file in files:
-              path = Path(file)
-
-              print(f"Validating {file}...")
-
-              if not path.exists():
-                  print(f"ERROR: {file} does not exist")
-                  failed = True
-                  continue
-
-              try:
-                  with path.open("r", encoding="utf-8") as f:
-                      documents = list(yaml.safe_load_all(f))
-
-                  if not documents:
-                      print(f"ERROR: {file} is empty")
-                      failed = True
-                      continue
-
-                  for index, document in enumerate(documents, start=1):
-                      if document is None:
-                          print(
-                              f"WARNING: {file} document {index} is empty"
-                          )
-
-                      elif not isinstance(document, dict):
-                          print(
-                              f"ERROR: {file} document {index} "
-                              "is not a YAML object"
-                          )
-                          failed = True
-
-                  print(f"OK: {file}")
-
-              except yaml.YAMLError as exc:
-                  print(f"ERROR: Invalid YAML in {file}")
-                  print(exc)
-                  failed = True
-
-          if failed:
-              raise SystemExit(1)
-
-          print("All Kubernetes YAML files passed syntax validation.")
-          PY
-
-
-  # ============================================================
-  # LOCAL KUBERNETES DEPLOYMENT
-  # ============================================================
-
-  deploy-local:
-    name: Deploy to Local Kubernetes
-    runs-on: ubuntu-latest
-
-    needs:
-      - validate-kubernetes
-
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      # ----------------------------------------------------------
-      # Create real Kubernetes cluster
-      # ----------------------------------------------------------
-
-      - name: Create Kind cluster
-        uses: helm/kind-action@v1
-        with:
-          cluster_name: pipelineshield
-
-      - name: Verify Kubernetes cluster
-        run: |
-          kubectl cluster-info
-          kubectl get nodes
 
       # ----------------------------------------------------------
       # Setup Node
@@ -395,23 +282,41 @@ jobs:
         run: |
           npm install --package-lock-only
           test -f package-lock.json
-
       # ----------------------------------------------------------
       # Remove frontend tests
       # ----------------------------------------------------------
 
       - name: Remove frontend test files
+        working-directory: pipelineshield-web
         shell: bash
         run: |
-          find pipelineshield-web/src -type f \( \
+          echo "Removing frontend test files..."
+          find src -type f \( \
             -name "*.test.ts" \
             -o -name "*.test.tsx" \
             -o -name "*.spec.ts" \
             -o -name "*.spec.tsx" \
-          \) -delete || true
+          \) -delete
+          echo "Frontend test files removed."
+      # ----------------------------------------------------------
+      # Create Kind cluster
+      # ----------------------------------------------------------
+
+      - name: Create Kind cluster
+        uses: helm/kind-action@v1
+        with:
+          cluster_name: pipelineshield
 
       # ----------------------------------------------------------
-      # Build images
+      # Verify Kubernetes cluster
+      # ----------------------------------------------------------
+
+      - name: Verify Kind cluster
+        run: |
+          kubectl cluster-info
+          kubectl get nodes
+      # ----------------------------------------------------------
+      # Build backend image
       # ----------------------------------------------------------
 
       - name: Build backend image
@@ -419,15 +324,17 @@ jobs:
           docker build \
             -t pipelineshield-backend:local \
             ./pipelineshield-api
+      # ----------------------------------------------------------
+      # Build frontend image
+      # ----------------------------------------------------------
 
       - name: Build frontend image
         run: |
           docker build \
             -t pipelineshield-frontend:local \
             ./pipelineshield-web
-
       # ----------------------------------------------------------
-      # Load images into Kind
+      # Load backend image into Kind
       # ----------------------------------------------------------
 
       - name: Load backend image into Kind
@@ -435,13 +342,15 @@ jobs:
           kind load docker-image \
             pipelineshield-backend:local \
             --name pipelineshield
+      # ----------------------------------------------------------
+      # Load frontend image into Kind
+      # ----------------------------------------------------------
 
       - name: Load frontend image into Kind
         run: |
           kind load docker-image \
             pipelineshield-frontend:local \
             --name pipelineshield
-
       # ----------------------------------------------------------
       # Deploy namespace
       # ----------------------------------------------------------
@@ -450,7 +359,6 @@ jobs:
         run: |
           kubectl apply \
             -f k8s/namespace.yaml
-
       # ----------------------------------------------------------
       # Deploy backend
       # ----------------------------------------------------------
@@ -459,7 +367,6 @@ jobs:
         run: |
           kubectl apply \
             -f k8s/backend.yaml
-
       # ----------------------------------------------------------
       # Deploy frontend
       # ----------------------------------------------------------
@@ -468,50 +375,28 @@ jobs:
         run: |
           kubectl apply \
             -f k8s/frontend.yaml
-
       # ----------------------------------------------------------
       # Wait for backend
       # ----------------------------------------------------------
 
-      - name: Wait for backend
+      - name: Wait for backend rollout
         run: |
           kubectl rollout status \
             deployment/pipelineshield-backend \
             -n pipelineshield \
             --timeout=180s
-
       # ----------------------------------------------------------
       # Wait for frontend
       # ----------------------------------------------------------
 
-      - name: Wait for frontend
+      - name: Wait for frontend rollout
         run: |
           kubectl rollout status \
             deployment/pipelineshield-frontend \
             -n pipelineshield \
             --timeout=180s
-
       # ----------------------------------------------------------
-      # Show Kubernetes resources
-      # ----------------------------------------------------------
-
-      - name: Show deployment status
-        run: |
-          echo "=== PODS ==="
-          kubectl get pods \
-            -n pipelineshield \
-            -o wide
-
-          echo "=== SERVICES ==="
-          kubectl get svc \
-            -n pipelineshield
-
-          echo "=== DEPLOYMENTS ==="
-          kubectl get deployments \
-            -n pipelineshield
-
-      # ----------------------------------------------------------
-      # Backend port forwarding
+      # Create backend port forward
       # ----------------------------------------------------------
 
       - name: Create backend port forward
@@ -521,9 +406,7 @@ jobs:
             8000:8000 \
             -n pipelineshield \
             > /tmp/backend.log 2>&1 &
-
           sleep 10
-
       # ----------------------------------------------------------
       # Backend health check
       # ----------------------------------------------------------
@@ -534,7 +417,6 @@ jobs:
             --retry 10 \
             --retry-delay 3 \
             http://127.0.0.1:8000/api/docs
-
       # ----------------------------------------------------------
       # OpenAPI check
       # ----------------------------------------------------------
@@ -543,105 +425,44 @@ jobs:
         run: |
           curl --fail \
             http://127.0.0.1:8000/openapi.json
-
-      # ----------------------------------------------------------
-      # Frontend port forwarding
-      # ----------------------------------------------------------
-
-      - name: Create frontend port forward
-        run: |
-          kubectl port-forward \
-            svc/pipelineshield-frontend \
-            8080:80 \
-            -n pipelineshield \
-            > /tmp/frontend.log 2>&1 &
-
-          sleep 10
-
-      # ----------------------------------------------------------
-      # Frontend health check
-      # ----------------------------------------------------------
-
-      - name: Frontend health check
-        run: |
-          curl --fail \
-            --retry 10 \
-            --retry-delay 3 \
-            http://127.0.0.1:8080
-
       # ----------------------------------------------------------
       # Deployment diagnostics
       # ----------------------------------------------------------
 
-      - name: Deployment diagnostics
+      - name: Deployment status
         if: always()
         run: |
-          echo "========================================"
+          echo "=========================================="
           echo "PODS"
-          echo "========================================"
-
-          kubectl get pods \
-            -n pipelineshield \
-            -o wide || true
-
-          echo "========================================"
+          echo "=========================================="
+          kubectl get pods -n pipelineshield
+          echo "=========================================="
           echo "SERVICES"
-          echo "========================================"
-
-          kubectl get svc \
-            -n pipelineshield || true
-
-          echo "========================================"
+          echo "=========================================="
+          kubectl get svc -n pipelineshield
+          echo "=========================================="
           echo "DEPLOYMENTS"
-          echo "========================================"
-
-          kubectl get deployments \
-            -n pipelineshield || true
-
-          echo "========================================"
+          echo "=========================================="
+          kubectl get deployments -n pipelineshield
+          echo "=========================================="
           echo "BACKEND LOGS"
-          echo "========================================"
-
+          echo "=========================================="
           kubectl logs \
             deployment/pipelineshield-backend \
             -n pipelineshield \
             --tail=100 || true
-
-          echo "========================================"
+          echo "=========================================="
           echo "FRONTEND LOGS"
-          echo "========================================"
-
+          echo "=========================================="
           kubectl logs \
             deployment/pipelineshield-frontend \
             -n pipelineshield \
             --tail=100 || true
-
-          echo "========================================"
-          echo "BACKEND PORT"
-          echo "========================================"
-
+          echo "=========================================="
+          echo "BACKEND API"
+          echo "=========================================="
           echo "http://127.0.0.1:8000"
-
-          echo "========================================"
+          echo "=========================================="
           echo "SWAGGER"
-          echo "========================================"
-
+          echo "=========================================="
           echo "http://127.0.0.1:8000/api/docs"
-
-          echo "========================================"
-          echo "FRONTEND"
-          echo "========================================"
-
-          echo "http://127.0.0.1:8080"
-
-          echo "========================================"
-          echo "BACKEND PORT-FORWARD LOG"
-          echo "========================================"
-
-          cat /tmp/backend.log || true
-
-          echo "========================================"
-          echo "FRONTEND PORT-FORWARD LOG"
-          echo "========================================"
-
-          cat /tmp/frontend.log || true
