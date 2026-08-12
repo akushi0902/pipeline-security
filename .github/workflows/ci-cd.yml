@@ -47,7 +47,7 @@ jobs:
 
 
   # ============================================================
-  # FRONTEND BUILD
+  # FRONTEND VALIDATION
   # ============================================================
 
   frontend-build:
@@ -72,41 +72,25 @@ jobs:
           node --version
           npm --version
 
-      # ----------------------------------------------------------
-      # Generate lock file in CI
-      # ----------------------------------------------------------
-
       - name: Generate package-lock.json
         run: |
-          echo "Generating package-lock.json in CI..."
           npm install --package-lock-only
           test -f package-lock.json
-          echo "package-lock.json generated successfully."
-
-      # ----------------------------------------------------------
-      # Install dependencies
-      # ----------------------------------------------------------
 
       - name: Install frontend dependencies
         run: npm ci
 
-      # ----------------------------------------------------------
-      # Remove tests from CI workspace
-      # ----------------------------------------------------------
-
-      - name: Remove test files from CI build
+      - name: Remove test files
         shell: bash
         run: |
-          echo "Test files found:"
+          echo "Removing frontend test files..."
 
           find src -type f \( \
             -name "*.test.ts" \
             -o -name "*.test.tsx" \
             -o -name "*.spec.ts" \
             -o -name "*.spec.tsx" \
-          \) -print || true
-
-          echo "Removing test files from CI workspace..."
+          \) -print
 
           find src -type f \( \
             -name "*.test.ts" \
@@ -115,18 +99,13 @@ jobs:
             -o -name "*.spec.tsx" \
           \) -delete
 
-          echo "Test files remaining:"
-
+          echo "Remaining test files:"
           find src -type f \( \
             -name "*.test.ts" \
             -o -name "*.test.tsx" \
             -o -name "*.spec.ts" \
             -o -name "*.spec.tsx" \
           \) -print || true
-
-      # ----------------------------------------------------------
-      # Build frontend
-      # ----------------------------------------------------------
 
       - name: Build frontend
         run: npm run build
@@ -149,24 +128,73 @@ jobs:
         uses: actions/checkout@v4
 
       # ----------------------------------------------------------
-      # Generate package-lock.json for Docker
+      # Node is needed to generate package-lock.json
       # ----------------------------------------------------------
 
-      - name: Setup Node for Docker preparation
+      - name: Setup Node
         uses: actions/setup-node@v4
         with:
           node-version: "22"
 
+      # ----------------------------------------------------------
+      # Generate package-lock.json
+      # ----------------------------------------------------------
+
       - name: Generate frontend package-lock.json
         working-directory: pipelineshield-web
         run: |
-          echo "Generating package-lock.json for Docker build..."
+          echo "Generating package-lock.json..."
           npm install --package-lock-only
           test -f package-lock.json
-          echo "package-lock.json ready for Docker."
+          echo "package-lock.json generated."
+
 
       # ----------------------------------------------------------
-      # Build backend image
+      # IMPORTANT:
+      # Remove frontend tests BEFORE Docker build.
+      #
+      # Dockerfile runs:
+      #   COPY . .
+      #   RUN npm run build
+      #
+      # Therefore tests must be removed from this job,
+      # not only from frontend-build.
+      # ----------------------------------------------------------
+
+      - name: Remove frontend test files before Docker build
+        working-directory: pipelineshield-web
+        shell: bash
+        run: |
+          echo "Test files before removal:"
+
+          find src -type f \( \
+            -name "*.test.ts" \
+            -o -name "*.test.tsx" \
+            -o -name "*.spec.ts" \
+            -o -name "*.spec.tsx" \
+          \) -print || true
+
+          echo "Removing test files..."
+
+          find src -type f \( \
+            -name "*.test.ts" \
+            -o -name "*.test.tsx" \
+            -o -name "*.spec.ts" \
+            -o -name "*.spec.tsx" \
+          \) -delete
+
+          echo "Test files after removal:"
+
+          find src -type f \( \
+            -name "*.test.ts" \
+            -o -name "*.test.tsx" \
+            -o -name "*.spec.ts" \
+            -o -name "*.spec.tsx" \
+          \) -print || true
+
+
+      # ----------------------------------------------------------
+      # Build backend Docker image
       # ----------------------------------------------------------
 
       - name: Build backend image
@@ -175,8 +203,9 @@ jobs:
             -t pipelineshield-backend:${{ github.sha }} \
             ./pipelineshield-api
 
+
       # ----------------------------------------------------------
-      # Build frontend image
+      # Build frontend Docker image
       # ----------------------------------------------------------
 
       - name: Build frontend image
@@ -185,8 +214,9 @@ jobs:
             -t pipelineshield-frontend:${{ github.sha }} \
             ./pipelineshield-web
 
+
       # ----------------------------------------------------------
-      # Verify images
+      # Verify Docker images
       # ----------------------------------------------------------
 
       - name: Verify Docker images
@@ -246,26 +276,35 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      # ----------------------------------------------------------
-      # Setup Node
-      # ----------------------------------------------------------
-
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
           node-version: "22"
 
       # ----------------------------------------------------------
-      # Generate package-lock.json for Docker
+      # Generate package-lock.json
       # ----------------------------------------------------------
 
       - name: Generate frontend package-lock.json
         working-directory: pipelineshield-web
         run: |
-          echo "Generating package-lock.json for Docker build..."
           npm install --package-lock-only
           test -f package-lock.json
-          echo "package-lock.json ready."
+
+      # ----------------------------------------------------------
+      # Remove tests before Docker build
+      # ----------------------------------------------------------
+
+      - name: Remove frontend test files
+        working-directory: pipelineshield-web
+        shell: bash
+        run: |
+          find src -type f \( \
+            -name "*.test.ts" \
+            -o -name "*.test.tsx" \
+            -o -name "*.spec.ts" \
+            -o -name "*.spec.tsx" \
+          \) -delete
 
       # ----------------------------------------------------------
       # Create Kind cluster
