@@ -83,7 +83,11 @@ export function catalogueReducer(
 ): CatalogueState {
   switch (action.type) {
     case 'LOAD_START':
-      return { ...state, isLoading: true, loadError: null };
+      return {
+        ...state,
+        isLoading: true,
+        loadError: null,
+      };
 
     case 'LOAD_SUCCESS':
       return {
@@ -95,15 +99,25 @@ export function catalogueReducer(
       };
 
     case 'LOAD_FAILURE':
-      return { ...state, isLoading: false, loadError: action.error };
+      return {
+        ...state,
+        isLoading: false,
+        loadError: action.error,
+      };
 
     case 'STAGE_CATEGORY_WEIGHT': {
       const base = state.baseSnapshot?.categories.find(
         (c) => c.id === action.categoryId,
       );
+
       const existing = state.categoryDrafts[action.categoryId] ?? {};
-      const newDraft: CategoryDraft = { ...existing, weight: action.weight };
-      // Remove draft when it has no effective change vs base
+
+      const newDraft: CategoryDraft = {
+        ...existing,
+        weight: action.weight,
+      };
+
+      // Remove draft when there is no effective change.
       if (
         base &&
         newDraft.weight === base.weight &&
@@ -111,8 +125,14 @@ export function catalogueReducer(
       ) {
         const next = { ...state.categoryDrafts };
         delete next[action.categoryId];
-        return { ...state, categoryDrafts: next, fieldErrors: {} };
+
+        return {
+          ...state,
+          categoryDrafts: next,
+          fieldErrors: {},
+        };
       }
+
       return {
         ...state,
         categoryDrafts: {
@@ -127,16 +147,35 @@ export function catalogueReducer(
       const base = state.baseSnapshot?.categories.find(
         (c) => c.id === action.categoryId,
       );
+
       const existing = state.categoryDrafts[action.categoryId] ?? {};
+
       const currentEnabled =
-        existing.enabled !== undefined ? existing.enabled : (base?.enabled ?? true);
+        existing.enabled !== undefined
+          ? existing.enabled
+          : (base?.enabled ?? true);
+
       const newEnabled = !currentEnabled;
-      const newDraft: CategoryDraft = { ...existing, enabled: newEnabled };
-      if (base && newDraft.enabled === base.enabled && newDraft.weight === undefined) {
+
+      const newDraft: CategoryDraft = {
+        ...existing,
+        enabled: newEnabled,
+      };
+
+      if (
+        base &&
+        newDraft.enabled === base.enabled &&
+        newDraft.weight === undefined
+      ) {
         const next = { ...state.categoryDrafts };
         delete next[action.categoryId];
-        return { ...state, categoryDrafts: next };
+
+        return {
+          ...state,
+          categoryDrafts: next,
+        };
       }
+
       return {
         ...state,
         categoryDrafts: {
@@ -150,8 +189,14 @@ export function catalogueReducer(
       const base = state.baseSnapshot?.controls.find(
         (c) => c.id === action.controlId,
       );
+
       const existing = state.controlDrafts[action.controlId] ?? {};
-      const newDraft: ControlDraft = { ...existing, severity: action.severity };
+
+      const newDraft: ControlDraft = {
+        ...existing,
+        severity: action.severity,
+      };
+
       if (
         base &&
         newDraft.severity === base.severity &&
@@ -159,8 +204,13 @@ export function catalogueReducer(
       ) {
         const next = { ...state.controlDrafts };
         delete next[action.controlId];
-        return { ...state, controlDrafts: next };
+
+        return {
+          ...state,
+          controlDrafts: next,
+        };
       }
+
       return {
         ...state,
         controlDrafts: {
@@ -174,11 +224,14 @@ export function catalogueReducer(
       const base = state.baseSnapshot?.controls.find(
         (c) => c.id === action.controlId,
       );
+
       const existing = state.controlDrafts[action.controlId] ?? {};
+
       const newDraft: ControlDraft = {
         ...existing,
         reference_tools: action.tools,
       };
+
       if (
         base &&
         newDraft.severity === undefined &&
@@ -187,8 +240,13 @@ export function catalogueReducer(
       ) {
         const next = { ...state.controlDrafts };
         delete next[action.controlId];
-        return { ...state, controlDrafts: next };
+
+        return {
+          ...state,
+          controlDrafts: next,
+        };
       }
+
       return {
         ...state,
         controlDrafts: {
@@ -199,7 +257,10 @@ export function catalogueReducer(
     }
 
     case 'SET_RATIONALE':
-      return { ...state, rationale: action.rationale };
+      return {
+        ...state,
+        rationale: action.rationale,
+      };
 
     case 'RESET_STAGED':
       return {
@@ -240,7 +301,9 @@ export function catalogueReducer(
         categoryDrafts: {},
         controlDrafts: {},
         rationale: '',
-        submitSuccess: { version: action.version },
+        submitSuccess: {
+          version: action.version,
+        },
       };
 
     case 'SUBMIT_FAILURE_400':
@@ -287,34 +350,56 @@ export function catalogueReducer(
 }
 
 // ---------------------------------------------------------------------------
-// Selectors — pure functions over CatalogueState
+// Selectors
 // ---------------------------------------------------------------------------
 
 export function selectEnabledWeightTotal(state: CatalogueState): number {
   if (!state.baseSnapshot) return 0;
+
   return state.baseSnapshot.categories.reduce((total, cat) => {
     const draft = state.categoryDrafts[cat.id];
-    const enabled = draft?.enabled !== undefined ? draft.enabled : cat.enabled;
-    const weight = draft?.weight !== undefined ? draft.weight : cat.weight;
+
+    const enabled =
+      draft?.enabled !== undefined
+        ? draft.enabled
+        : cat.enabled;
+
+    const weight =
+      draft?.weight !== undefined
+        ? draft.weight
+        : cat.weight;
+
     return enabled ? total + weight : total;
   }, 0);
 }
 
 export function selectDiff(state: CatalogueState): DiffLine[] {
   if (!state.baseSnapshot) return [];
+
   const lines: DiffLine[] = [];
 
   for (const [catId, draft] of Object.entries(state.categoryDrafts)) {
-    const base = state.baseSnapshot.categories.find((c) => c.id === catId);
+    const base = state.baseSnapshot.categories.find(
+      (c) => c.id === catId,
+    );
+
     if (!base) continue;
-    if (draft.weight !== undefined && draft.weight !== base.weight) {
+
+    if (
+      draft.weight !== undefined &&
+      draft.weight !== base.weight
+    ) {
       lines.push({
         path: `categories.${catId}.weight`,
         current_value: base.weight,
         proposed_value: draft.weight,
       });
     }
-    if (draft.enabled !== undefined && draft.enabled !== base.enabled) {
+
+    if (
+      draft.enabled !== undefined &&
+      draft.enabled !== base.enabled
+    ) {
       lines.push({
         path: `categories.${catId}.enabled`,
         current_value: base.enabled,
@@ -323,16 +408,26 @@ export function selectDiff(state: CatalogueState): DiffLine[] {
     }
   }
 
-  for (const [ctrlId, draft] of Object.entries(state.controlDrafts)) {
-    const base = state.baseSnapshot.controls.find((c) => c.id === ctrlId);
+  for (const [ctrlId, draft] of Object.entries(
+    state.controlDrafts,
+  )) {
+    const base = state.baseSnapshot.controls.find(
+      (c) => c.id === ctrlId,
+    );
+
     if (!base) continue;
-    if (draft.severity !== undefined && draft.severity !== base.severity) {
+
+    if (
+      draft.severity !== undefined &&
+      draft.severity !== base.severity
+    ) {
       lines.push({
         path: `controls.${ctrlId}.severity`,
         current_value: base.severity,
         proposed_value: draft.severity,
       });
     }
+
     if (
       draft.reference_tools !== undefined &&
       JSON.stringify(draft.reference_tools) !==
@@ -349,40 +444,86 @@ export function selectDiff(state: CatalogueState): DiffLine[] {
   return lines;
 }
 
+// ---------------------------------------------------------------------------
+// Submit validation
+// ---------------------------------------------------------------------------
+
 export function selectCanSubmit(state: CatalogueState): boolean {
   if (state.isSubmitting) return false;
+
   if (!state.rationale.trim()) return false;
+
+  // Enabled category weights must always total exactly 100.
   if (selectEnabledWeightTotal(state) !== 100) return false;
+
   if (selectDiff(state).length === 0) return false;
+
   return true;
 }
 
-export function selectChangesForApi(state: CatalogueState): ChangeOp[] {
+// ---------------------------------------------------------------------------
+// API changes
+// ---------------------------------------------------------------------------
+
+export function selectChangesForApi(
+  state: CatalogueState,
+): ChangeOp[] {
   if (!state.baseSnapshot) return [];
+
   const ops: ChangeOp[] = [];
 
-  for (const [catId, draft] of Object.entries(state.categoryDrafts)) {
-    const base = state.baseSnapshot.categories.find((c) => c.id === catId);
+  for (const [catId, draft] of Object.entries(
+    state.categoryDrafts,
+  )) {
+    const base = state.baseSnapshot.categories.find(
+      (c) => c.id === catId,
+    );
+
     if (!base) continue;
+
     const fields: ChangeOp['fields'] = {};
-    if (draft.weight !== undefined && draft.weight !== base.weight) {
+
+    if (
+      draft.weight !== undefined &&
+      draft.weight !== base.weight
+    ) {
       fields.weight = draft.weight;
     }
-    if (draft.enabled !== undefined && draft.enabled !== base.enabled) {
+
+    if (
+      draft.enabled !== undefined &&
+      draft.enabled !== base.enabled
+    ) {
       fields.enabled = draft.enabled;
     }
+
     if (Object.keys(fields).length > 0) {
-      ops.push({ target: 'category', id: catId, fields });
+      ops.push({
+        target: 'category',
+        id: catId,
+        fields,
+      });
     }
   }
 
-  for (const [ctrlId, draft] of Object.entries(state.controlDrafts)) {
-    const base = state.baseSnapshot.controls.find((c) => c.id === ctrlId);
+  for (const [ctrlId, draft] of Object.entries(
+    state.controlDrafts,
+  )) {
+    const base = state.baseSnapshot.controls.find(
+      (c) => c.id === ctrlId,
+    );
+
     if (!base) continue;
+
     const fields: ChangeOp['fields'] = {};
-    if (draft.severity !== undefined && draft.severity !== base.severity) {
+
+    if (
+      draft.severity !== undefined &&
+      draft.severity !== base.severity
+    ) {
       fields.severity = draft.severity;
     }
+
     if (
       draft.reference_tools !== undefined &&
       JSON.stringify(draft.reference_tools) !==
@@ -390,8 +531,13 @@ export function selectChangesForApi(state: CatalogueState): ChangeOp[] {
     ) {
       fields.reference_tools = draft.reference_tools;
     }
+
     if (Object.keys(fields).length > 0) {
-      ops.push({ target: 'control', id: ctrlId, fields });
+      ops.push({
+        target: 'control',
+        id: ctrlId,
+        fields,
+      });
     }
   }
 
