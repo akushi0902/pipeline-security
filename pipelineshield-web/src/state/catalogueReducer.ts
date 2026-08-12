@@ -453,9 +453,6 @@ export function selectCanSubmit(state: CatalogueState): boolean {
 
   if (!state.rationale.trim()) return false;
 
-  // Enabled category weights must always total exactly 100.
-  if (selectEnabledWeightTotal(state) !== 100) return false;
-
   if (selectDiff(state).length === 0) return false;
 
   return true;
