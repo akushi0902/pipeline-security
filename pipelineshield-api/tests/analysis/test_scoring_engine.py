@@ -55,7 +55,11 @@ def _make_snapshot(categories: list[ControlCategory]) -> CatalogueSnapshot:
 
 def _ctrl(ctrl_id: str, cat_id: str, enabled: bool = True) -> ControlDefinition:
     return ControlDefinition(
-        id=ctrl_id, category_id=cat_id, severity=Severity.HIGH, enabled=enabled
+        id=ctrl_id,
+        category_id=cat_id,
+        severity=Severity.HIGH,
+        enabled=enabled,
+        reference_tools=["test-tool"],
     )
 
 

@@ -1,9 +1,18 @@
 {
   "ir_version": "1.0",
   "source_format": "github_actions",
-  "triggers": ["push"],
-  "trigger_details": {"push": {}},
-  "permissions": {"scope": "workflow", "state": "absent", "grants": {}, "anchor": null},
+  "triggers": [
+    "push"
+  ],
+  "trigger_details": {
+    "push": {}
+  },
+  "permissions": {
+    "scope": "workflow",
+    "state": "absent",
+    "grants": {},
+    "anchor": null
+  },
   "jobs": [
     {
       "id": "build",
@@ -45,11 +54,17 @@
           "secret_refs": []
         }
       ],
-      "permissions": {"scope": "job", "state": "absent", "grants": {}, "anchor": null},
+      "permissions": {
+        "scope": "job",
+        "state": "absent",
+        "grants": {},
+        "anchor": null
+      },
       "needs": [],
       "condition": null,
       "matrix": null,
-      "anchor": null
+      "anchor": null,
+      "extraction_metadata": {}
     }
   ],
   "coverage_report": {
@@ -61,12 +76,29 @@
       }
     ],
     "constructs_handled": [
-      "triggers", "workflow_permissions", "jobs", "job_permissions",
-      "steps", "action_refs", "secret_refs", "matrix_static", "needs"
+      "triggers",
+      "workflow_permissions",
+      "jobs",
+      "job_permissions",
+      "steps",
+      "action_refs",
+      "secret_refs",
+      "matrix_static",
+      "needs"
     ],
     "constructs_excluded": [
-      "concurrency", "environment", "outputs", "defaults", "services", "container"
-    ]
+      "concurrency",
+      "environment",
+      "outputs",
+      "defaults",
+      "services",
+      "container"
+    ],
+    "coverage_ratio": null
   },
-  "trigger_anchor": null
+  "trigger_anchor": {
+    "start_line": 2,
+    "start_column": 1,
+    "end_line": null
+  }
 }

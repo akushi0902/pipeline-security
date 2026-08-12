@@ -14,6 +14,7 @@ from __future__ import annotations
 import os
 
 from sqlalchemy import create_engine
+from sqlalchemy.engine import Engine
 from sqlalchemy.orm import Session, sessionmaker
 
 
@@ -33,7 +34,7 @@ def create_engine_from_env(
     max_overflow: int = 5,
     pool_pre_ping: bool = True,
     connect_args: dict | None = None,  # type: ignore[type-arg]
-) -> "sqlalchemy.engine.Engine":  # type: ignore[name-defined]
+) -> Engine:
     """Create a SQLAlchemy engine with the recommended pool settings."""
     if connect_args is None:
         # 5-second acquire timeout; 30-second statement timeout enforced
@@ -54,7 +55,7 @@ def create_engine_from_env(
 
 
 def make_session_factory(
-    engine: "sqlalchemy.engine.Engine",  # type: ignore[name-defined]
+    engine: Engine,
 ) -> sessionmaker[Session]:
     """Return a configured session factory bound to *engine*.
 

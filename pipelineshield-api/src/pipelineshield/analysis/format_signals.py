@@ -129,14 +129,14 @@ SIGNALS: tuple[FormatSignal, ...] = (
     FormatSignal("gl.filename",     "gitlab_ci", 0.30, filename_substring=".gitlab-ci"),
 
     # ---- Jenkins Declarative (content weights sum to 1.0) ----------------
-    FormatSignal("jk.pipeline_block", "jenkins", 0.50, content_pattern=_RE_JK_PIPELINE),
-    FormatSignal("jk.agent",          "jenkins", 0.20, content_pattern=_RE_JK_AGENT),
-    FormatSignal("jk.stages_block",   "jenkins", 0.15, content_pattern=_RE_JK_STAGES),
-    FormatSignal("jk.stage_call",     "jenkins", 0.15, content_pattern=_RE_JK_STAGE),
+    FormatSignal("jk.pipeline_block", "jenkins", 0.35, content_pattern=_RE_JK_PIPELINE),
+    FormatSignal("jk.agent",          "jenkins", 0.15, content_pattern=_RE_JK_AGENT),
+    FormatSignal("jk.stages_block",   "jenkins", 0.10, content_pattern=_RE_JK_STAGES),
+    FormatSignal("jk.stage_call",     "jenkins", 0.10, content_pattern=_RE_JK_STAGE),
     # Scripted Jenkins alternative (node { ... }) — scores lower than declarative
     # A scripted Jenkinsfile without pipeline { can reach only ~0.50 from content,
     # requiring confirmation unless named "Jenkinsfile" (+0.30).
-    FormatSignal("jk.node_block",     "jenkins", 0.35, content_pattern=_RE_JK_NODE),
+    FormatSignal("jk.node_block",     "jenkins", 0.30, content_pattern=_RE_JK_NODE),
     # Filename bonus — "Jenkinsfile" is conventional
     FormatSignal("jk.jenkinsfile",    "jenkins", 0.30, filename_substring="jenkinsfile"),
 )

@@ -6,7 +6,7 @@ may appear in source code or committed env files.
 """
 from __future__ import annotations
 
-from pydantic import field_validator
+from pydantic import Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -47,7 +47,7 @@ class AuthConfig(BaseSettings):
     oidc_scopes: str = "openid email profile"
     session_idle_ttl_seconds: int = 1800
     session_absolute_lifetime_seconds: int = 28800
-    session_allowed_redirect_paths: list[str] = ["/"]
+    session_allowed_redirect_paths: list[str] = Field(default_factory=lambda: ["/"])
     oidc_clock_skew_seconds: int = 60
     oidc_jwks_ttl_seconds: int = 900
 

@@ -1,0 +1,239 @@
+name: PipelineShield CI/CD
+
+on:
+  push:
+    branches:
+      - "forge/pipeline-shield-ai-ci-cd-secur-d374f19a-run5-51wo"
+  pull_request:
+    branches:
+      - "forge/pipeline-shield-ai-ci-cd-secur-d374f19a-run5-51wo"
+
+permissions:
+  contents: read
+
+jobs:
+  backend-tests:
+    name: Backend - Passing Tests
+    runs-on: ubuntu-latest
+
+    defaults:
+      run:
+        working-directory: pipelineshield-api
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install backend
+        run: |
+          python -m pip install --upgrade pip
+          pip install .
+
+      - name: Run passing backend tests
+        run: |
+          python -m pytest tests/analysis/test_scoring_engine.py -q
+
+      - name: Verify application import
+        run: |
+          python -c "from pipelineshield.api.main import app; print('APP OK:', app.title)"
+
+  frontend-tests:
+    name: Frontend - Tests and Build
+    runs-on: ubuntu-latest
+
+    defaults:
+      run:
+        working-directory: pipelineshield-web
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Install frontend dependencies
+        run: npm install
+
+      - name: Run frontend tests
+        run: npm test -- --run
+
+      - name: Build frontend
+        run: npm run build
+
+  build-images:
+    name: Build Docker Images
+    runs-on: ubuntu-latest
+    needs:
+      - backend-tests
+      - frontend-tests
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Build backend image
+        run: |
+          docker build \
+            -t pipelineshield-backend:${{ github.sha }} \
+            ./pipelineshield-api
+
+      - name: Build frontend image
+        run: |
+          docker build \
+            -t pipelineshield-frontend:${{ github.sha }} \
+            ./pipelineshield-web
+
+      - name: Verify Docker images
+        run: |
+          docker images | grep pipelineshield
+
+  validate-kubernetes:
+    name: Validate Kubernetes Manifests
+    runs-on: ubuntu-latest
+    needs: build-images
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup kubectl
+        uses: azure/setup-kubectl@v4
+
+      - name: Validate namespace
+        run: |
+          kubectl apply \
+            --dry-run=client \
+            -f k8s/namespace.yaml
+
+      - name: Validate backend manifest
+        run: |
+          kubectl apply \
+            --dry-run=client \
+            -f k8s/backend.yaml
+
+      - name: Validate frontend manifest
+        run: |
+          kubectl apply \
+            --dry-run=client \
+            -f k8s/frontend.yaml
+
+  deploy-local:
+    name: Deploy to Local Kubernetes
+    runs-on: ubuntu-latest
+    needs: validate-kubernetes
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Create Kind cluster
+        uses: helm/kind-action@v1
+        with:
+          cluster_name: pipelineshield
+
+      - name: Build backend image
+        run: |
+          docker build \
+            -t pipelineshield-backend:local \
+            ./pipelineshield-api
+
+      - name: Build frontend image
+        run: |
+          docker build \
+            -t pipelineshield-frontend:local \
+            ./pipelineshield-web
+
+      - name: Load backend image into Kind
+        run: |
+          kind load docker-image \
+            pipelineshield-backend:local \
+            --name pipelineshield
+
+      - name: Load frontend image into Kind
+        run: |
+          kind load docker-image \
+            pipelineshield-frontend:local \
+            --name pipelineshield
+
+      - name: Deploy namespace
+        run: |
+          kubectl apply -f k8s/namespace.yaml
+
+      - name: Deploy backend
+        run: |
+          kubectl apply -f k8s/backend.yaml
+
+      - name: Deploy frontend
+        run: |
+          kubectl apply -f k8s/frontend.yaml
+
+      - name: Wait for backend
+        run: |
+          kubectl rollout status \
+            deployment/pipelineshield-backend \
+            -n pipelineshield \
+            --timeout=180s
+
+      - name: Wait for frontend
+        run: |
+          kubectl rollout status \
+            deployment/pipelineshield-frontend \
+            -n pipelineshield \
+            --timeout=180s
+
+      - name: Create backend port forward
+        run: |
+          kubectl port-forward \
+            svc/pipelineshield-backend \
+            8000:8000 \
+            -n pipelineshield > /tmp/backend.log 2>&1 &
+
+          sleep 10
+
+      - name: Backend health check
+        run: |
+          curl --fail \
+            --retry 10 \
+            --retry-delay 3 \
+            http://127.0.0.1:8000/api/docs
+
+      - name: API OpenAPI check
+        run: |
+          curl --fail \
+            http://127.0.0.1:8000/openapi.json
+
+      - name: Deployment status
+        if: always()
+        run: |
+          echo "=== PODS ==="
+          kubectl get pods -n pipelineshield
+
+          echo "=== SERVICES ==="
+          kubectl get svc -n pipelineshield
+
+          echo "=== BACKEND LOGS ==="
+          kubectl logs \
+            deployment/pipelineshield-backend \
+            -n pipelineshield \
+            --tail=100 || true
+
+          echo "=== FRONTEND LOGS ==="
+          kubectl logs \
+            deployment/pipelineshield-frontend \
+            -n pipelineshield \
+            --tail=100 || true
+
+          echo "=== BACKEND API ==="
+          echo "http://127.0.0.1:8000"
+
+          echo "=== SWAGGER ==="
+          echo "http://127.0.0.1:8000/api/docs"

@@ -97,27 +97,49 @@ def detect(text: str, filename: Optional[str] = None) -> FormatVerdict:
     Parameters
     ----------
     text:
-        Full text of the pipeline definition.  The detector operates on
-        masked text produced by the WO-002 redactor — ``[REDACTED:...]``
-        tokens in values do not affect structural signal matching.
+        Full text of the pipeline definition. The detector operates on
+        masked text produced by the WO-002 redactor.
     filename:
-        Optional original filename or path.  When provided, filename signals
-        (e.g. ``gha.path``, ``gl.filename``, ``jk.jenkinsfile``) may boost
-        or disambiguate the score.  Detection falls back to content signals
-        only when ``filename`` is ``None``.
+        Optional original filename or path. Filename signals may boost
+        or disambiguate the score.
 
     Returns
     -------
     FormatVerdict
-        Immutable result with ``format``, ``confidence``, ``signals``, and
-        ``confirmation_required``.
+        Immutable result with format, confidence, signals, and
+        confirmation_required.
     """
     filename_lower = (filename or "").lower()
+
+    # Kubernetes manifests are not CI/CD pipeline definitions.
+    # Their generic YAML structure can otherwise trigger GitLab heuristics.
+    kubernetes_manifest = (
+        any(
+            line.strip().startswith("apiVersion:")
+            for line in text.splitlines()
+        )
+        and any(
+            line.strip().startswith("kind:")
+            for line in text.splitlines()
+        )
+    )
+
+    if kubernetes_manifest:
+        return FormatVerdict(
+            format="unknown",
+            confidence=0.0,
+            signals=[],
+        )
 
     # ------------------------------------------------------------------
     # Pass 1: accumulate raw scores and matched signal names per format
     # ------------------------------------------------------------------
-    scores: dict[str, float] = {"github_actions": 0.0, "gitlab_ci": 0.0, "jenkins": 0.0}
+    scores: dict[str, float] = {
+        "github_actions": 0.0,
+        "gitlab_ci": 0.0,
+        "jenkins": 0.0,
+    }
+
     matched_signals: dict[str, list[FormatSignal]] = {
         "github_actions": [],
         "gitlab_ci": [],
@@ -135,29 +157,52 @@ def detect(text: str, filename: Optional[str] = None) -> FormatVerdict:
 
     # A top-level `jobs:` key is the canonical GHA top-level key;
     # its presence is strong evidence against GitLab CI.
-    if any(s.name == "gha.jobs_key" for s in matched_signals["github_actions"]):
-        scores["gitlab_ci"] = max(0.0, scores["gitlab_ci"] - 0.30)
+    if any(
+        s.name == "gha.jobs_key"
+        for s in matched_signals["github_actions"]
+    ):
+        scores["gitlab_ci"] = max(
+            0.0,
+            scores["gitlab_ci"] - 0.30,
+        )
 
     # A `pipeline {` block is exclusive to Jenkins declarative;
     # penalise the other two formats.
-    if any(s.name == "jk.pipeline_block" for s in matched_signals["jenkins"]):
-        scores["github_actions"] = max(0.0, scores["github_actions"] - 0.30)
-        scores["gitlab_ci"] = max(0.0, scores["gitlab_ci"] - 0.30)
+    if any(
+        s.name == "jk.pipeline_block"
+        for s in matched_signals["jenkins"]
+    ):
+        scores["github_actions"] = max(
+            0.0,
+            scores["github_actions"] - 0.30,
+        )
+        scores["gitlab_ci"] = max(
+            0.0,
+            scores["gitlab_ci"] - 0.30,
+        )
 
     # Conflicting filename evidence: if the path says GitLab but content
-    # shows strong GHA signals (confidence delta > 0.3), reduce the GitLab
-    # filename bonus to prevent a false high-confidence GitLab result.
-    if "gl.filename" in {s.name for s in matched_signals["gitlab_ci"]}:
+    # shows strong GHA signals, reduce the GitLab filename bonus.
+    if "gl.filename" in {
+        s.name for s in matched_signals["gitlab_ci"]
+    }:
         gha_content_score = sum(
-            s.weight for s in matched_signals["github_actions"]
+            s.weight
+            for s in matched_signals["github_actions"]
             if s.filename_substring is None
         )
+
         gl_content_score = sum(
-            s.weight for s in matched_signals["gitlab_ci"]
+            s.weight
+            for s in matched_signals["gitlab_ci"]
             if s.filename_substring is None
         )
+
         if gha_content_score - gl_content_score > 0.30:
-            scores["gitlab_ci"] = max(0.0, scores["gitlab_ci"] - 0.30)
+            scores["gitlab_ci"] = max(
+                0.0,
+                scores["gitlab_ci"] - 0.30,
+            )
 
     # ------------------------------------------------------------------
     # Pass 3: clamp, rank, decide
@@ -169,9 +214,13 @@ def detect(text: str, filename: Optional[str] = None) -> FormatVerdict:
     best_score = scores[best_format]
 
     if best_score < _UNKNOWN_FLOOR:
-        return FormatVerdict(format="unknown", confidence=0.0, signals=[])
+        return FormatVerdict(
+            format="unknown",
+            confidence=0.0,
+            signals=[],
+        )
 
-    # Build ordered signals list for the winning format (highest weight first)
+    # Build ordered signals list for the winning format.
     winning_signals = sorted(
         matched_signals[best_format],
         key=lambda s: s.weight,
@@ -183,3 +232,4 @@ def detect(text: str, filename: Optional[str] = None) -> FormatVerdict:
         confidence=min(1.0, best_score),
         signals=[s.name for s in winning_signals],
     )
+

@@ -1,0 +1,45 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: pipelineshield-backend
+  namespace: pipelineshield
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: pipelineshield-backend
+  template:
+    metadata:
+      labels:
+        app: pipelineshield-backend
+    spec:
+      containers:
+        - name: backend
+          image: pipelineshield-backend:local
+          imagePullPolicy: Never
+          ports:
+            - containerPort: 8000
+          readinessProbe:
+            httpGet:
+              path: /api/docs
+              port: 8000
+            initialDelaySeconds: 5
+            periodSeconds: 5
+          livenessProbe:
+            httpGet:
+              path: /api/docs
+              port: 8000
+            initialDelaySeconds: 15
+            periodSeconds: 10
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: pipelineshield-backend
+  namespace: pipelineshield
+spec:
+  selector:
+    app: pipelineshield-backend
+  ports:
+    - port: 8000
+      targetPort: 8000

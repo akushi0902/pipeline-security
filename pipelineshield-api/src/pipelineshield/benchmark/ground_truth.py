@@ -1,24 +1,26 @@
 """Pydantic v2 schema for the benchmark corpus ground-truth manifest.
 
 Models:
-  SeededGap           — a deliberately injected control weakness
-  NegativeExpectation — a control that must evaluate as Present (FP guard)
-  NotAssessableEntry  — construct that cannot be statically assessed
-  CorpusFile          — per-file manifest entry
-  GroundTruthManifest — top-level versioned manifest
+SeededGap           — a deliberately injected control weakness
+NegativeExpectation — a control that must evaluate as Present (FP guard)
+NotAssessableEntry  — construct that cannot be statically assessed
+CorpusFile          — per-file manifest entry
+GroundTruthManifest — top-level versioned manifest
 """
+
 from __future__ import annotations
 
 from enum import Enum
 from pathlib import Path
 from typing import Optional
 
-from pydantic import BaseModel, field_validator, model_validator
+from pydantic import BaseModel, Field, field_validator, model_validator
 
 
 # ---------------------------------------------------------------------------
 # Enumerations
 # ---------------------------------------------------------------------------
+
 
 class ControlStatus(str, Enum):
     missing = "missing"
@@ -44,6 +46,7 @@ class Severity(str, Enum):
 # Ground-truth sub-models
 # ---------------------------------------------------------------------------
 
+
 class SeededGap(BaseModel, frozen=True, extra="forbid"):
     control_id: str
     category: str
@@ -60,9 +63,16 @@ class NegativeExpectation(BaseModel, frozen=True, extra="forbid"):
 
 
 class NotAssessableEntry(BaseModel, frozen=True, extra="forbid"):
-    construct: str
+    # Pydantic BaseModel already has a `construct` attribute/method.
+    # Use a safe Python attribute name while preserving `construct`
+    # as the external serialized/validation field name.
+    construct_name: str = Field(alias="construct")
     first_line: int
     rationale: str
+
+    model_config = {
+        "populate_by_name": True,
+    }
 
 
 class CorpusFile(BaseModel, frozen=True, extra="forbid"):
@@ -77,24 +87,39 @@ class CorpusFile(BaseModel, frozen=True, extra="forbid"):
     @classmethod
     def _line_count_within_envelope(cls, v: int) -> int:
         if v > 500:
-            raise ValueError(f"Corpus file exceeds 500-line envelope: {v}")
+            raise ValueError(
+                f"Corpus file exceeds 500-line envelope: {v}"
+            )
         return v
 
     @model_validator(mode="after")
     def _no_duplicate_seeded_gap(self) -> "CorpusFile":
         seen: set[tuple[str, int | None]] = set()
+
         for gap in self.seeded_gaps:
-            key = (gap.control_id, gap.expected_anchor_line)
+            key = (
+                gap.control_id,
+                gap.expected_anchor_line,
+            )
+
             if key in seen:
                 raise ValueError(
-                    f"Duplicate SeededGap for control_id={gap.control_id!r} "
-                    f"at line {gap.expected_anchor_line} in {self.path!r}"
+                    f"Duplicate SeededGap for control_id="
+                    f"{gap.control_id!r} "
+                    f"at line {gap.expected_anchor_line} "
+                    f"in {self.path!r}"
                 )
+
             seen.add(key)
+
         return self
 
 
-class GroundTruthManifest(BaseModel, frozen=True, extra="forbid"):
+class GroundTruthManifest(
+    BaseModel,
+    frozen=True,
+    extra="forbid",
+):
     corpus_version: str
     catalogue_version: int
     files: list[CorpusFile]
@@ -102,42 +127,73 @@ class GroundTruthManifest(BaseModel, frozen=True, extra="forbid"):
     @model_validator(mode="after")
     def _validate_control_ids(self) -> "GroundTruthManifest":
         valid_ids = _VALID_CONTROL_IDS
+
         for corpus_file in self.files:
             for gap in corpus_file.seeded_gaps:
                 if gap.control_id not in valid_ids:
                     raise ValueError(
-                        f"Unknown control_id {gap.control_id!r} in {corpus_file.path!r}. "
+                        f"Unknown control_id {gap.control_id!r} "
+                        f"in {corpus_file.path!r}. "
                         f"Valid IDs: {sorted(valid_ids)}"
                     )
+
             for neg in corpus_file.negative_expectations:
                 if neg.control_id not in valid_ids:
                     raise ValueError(
-                        f"Unknown control_id {neg.control_id!r} (negative expectation) "
+                        f"Unknown control_id {neg.control_id!r} "
+                        f"(negative expectation) "
                         f"in {corpus_file.path!r}"
                     )
+
         return self
 
     @model_validator(mode="after")
     def _no_duplicate_file_paths(self) -> "GroundTruthManifest":
         paths = [f.path for f in self.files]
+
         if len(paths) != len(set(paths)):
-            dupes = {p for p in paths if paths.count(p) > 1}
-            raise ValueError(f"Duplicate file paths in manifest: {dupes}")
+            dupes = {
+                p
+                for p in paths
+                if paths.count(p) > 1
+            }
+
+            raise ValueError(
+                f"Duplicate file paths in manifest: {dupes}"
+            )
+
         return self
 
 
 # ---------------------------------------------------------------------------
-# Ratified control ID set (must match catalogue_v1.json categories/controls)
+# Ratified control ID set
+# (must match catalogue_v1.json categories/controls)
 # ---------------------------------------------------------------------------
 
-_VALID_CONTROL_IDS: frozenset[str] = frozenset({
-    "sh-001", "sh-002",       # secrets_hygiene
-    "as-001", "as-002",       # artifact_signing
-    "sa-001",                  # static_analysis
-    "ds-001", "ds-002",       # dependency_scanning
-    "lp-001", "lp-002",       # least_privilege
-    "iac-001",                 # iac_misconfiguration
-    "sci-001", "sci-002",     # supply_chain_integrity
-    "sbom-001",                # sbom
-    "ag-001",                  # approval_gates
-})
+
+_VALID_CONTROL_IDS: frozenset[str] = frozenset(
+    {
+        "sh-001",
+        "sh-002",       # secrets_hygiene
+
+        "as-001",
+        "as-002",       # artifact_signing
+
+        "sa-001",       # static_analysis
+
+        "ds-001",
+        "ds-002",       # dependency_scanning
+
+        "lp-001",
+        "lp-002",       # least_privilege
+
+        "iac-001",      # iac_misconfiguration
+
+        "sci-001",
+        "sci-002",      # supply_chain_integrity
+
+        "sbom-001",     # sbom
+
+        "ag-001",       # approval_gates
+    }
+)
