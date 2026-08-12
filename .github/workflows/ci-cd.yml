@@ -72,11 +72,26 @@ jobs:
           node --version
           npm --version
 
-      - name: Install frontend dependencies
-        run: npm install
+      # ----------------------------------------------------------
+      # Generate lock file in CI
+      # ----------------------------------------------------------
+
+      - name: Generate package-lock.json
+        run: |
+          echo "Generating package-lock.json in CI..."
+          npm install --package-lock-only
+          test -f package-lock.json
+          echo "package-lock.json generated successfully."
 
       # ----------------------------------------------------------
-      # Tests are intentionally excluded from CI build
+      # Install dependencies
+      # ----------------------------------------------------------
+
+      - name: Install frontend dependencies
+        run: npm ci
+
+      # ----------------------------------------------------------
+      # Remove tests from CI workspace
       # ----------------------------------------------------------
 
       - name: Remove test files from CI build
@@ -109,6 +124,10 @@ jobs:
             -o -name "*.spec.tsx" \
           \) -print || true
 
+      # ----------------------------------------------------------
+      # Build frontend
+      # ----------------------------------------------------------
+
       - name: Build frontend
         run: npm run build
 
@@ -129,17 +148,46 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      # ----------------------------------------------------------
+      # Generate package-lock.json for Docker
+      # ----------------------------------------------------------
+
+      - name: Setup Node for Docker preparation
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Generate frontend package-lock.json
+        working-directory: pipelineshield-web
+        run: |
+          echo "Generating package-lock.json for Docker build..."
+          npm install --package-lock-only
+          test -f package-lock.json
+          echo "package-lock.json ready for Docker."
+
+      # ----------------------------------------------------------
+      # Build backend image
+      # ----------------------------------------------------------
+
       - name: Build backend image
         run: |
           docker build \
             -t pipelineshield-backend:${{ github.sha }} \
             ./pipelineshield-api
 
+      # ----------------------------------------------------------
+      # Build frontend image
+      # ----------------------------------------------------------
+
       - name: Build frontend image
         run: |
           docker build \
             -t pipelineshield-frontend:${{ github.sha }} \
             ./pipelineshield-web
+
+      # ----------------------------------------------------------
+      # Verify images
+      # ----------------------------------------------------------
 
       - name: Verify Docker images
         run: |
@@ -198,10 +246,39 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      # ----------------------------------------------------------
+      # Setup Node
+      # ----------------------------------------------------------
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      # ----------------------------------------------------------
+      # Generate package-lock.json for Docker
+      # ----------------------------------------------------------
+
+      - name: Generate frontend package-lock.json
+        working-directory: pipelineshield-web
+        run: |
+          echo "Generating package-lock.json for Docker build..."
+          npm install --package-lock-only
+          test -f package-lock.json
+          echo "package-lock.json ready."
+
+      # ----------------------------------------------------------
+      # Create Kind cluster
+      # ----------------------------------------------------------
+
       - name: Create Kind cluster
         uses: helm/kind-action@v1
         with:
           cluster_name: pipelineshield
+
+      # ----------------------------------------------------------
+      # Build backend image
+      # ----------------------------------------------------------
 
       - name: Build backend image
         run: |
@@ -209,11 +286,19 @@ jobs:
             -t pipelineshield-backend:local \
             ./pipelineshield-api
 
+      # ----------------------------------------------------------
+      # Build frontend image
+      # ----------------------------------------------------------
+
       - name: Build frontend image
         run: |
           docker build \
             -t pipelineshield-frontend:local \
             ./pipelineshield-web
+
+      # ----------------------------------------------------------
+      # Load backend image into Kind
+      # ----------------------------------------------------------
 
       - name: Load backend image into Kind
         run: |
@@ -221,26 +306,46 @@ jobs:
             pipelineshield-backend:local \
             --name pipelineshield
 
+      # ----------------------------------------------------------
+      # Load frontend image into Kind
+      # ----------------------------------------------------------
+
       - name: Load frontend image into Kind
         run: |
           kind load docker-image \
             pipelineshield-frontend:local \
             --name pipelineshield
 
+      # ----------------------------------------------------------
+      # Deploy namespace
+      # ----------------------------------------------------------
+
       - name: Deploy namespace
         run: |
           kubectl apply \
             -f k8s/namespace.yaml
+
+      # ----------------------------------------------------------
+      # Deploy backend
+      # ----------------------------------------------------------
 
       - name: Deploy backend
         run: |
           kubectl apply \
             -f k8s/backend.yaml
 
+      # ----------------------------------------------------------
+      # Deploy frontend
+      # ----------------------------------------------------------
+
       - name: Deploy frontend
         run: |
           kubectl apply \
             -f k8s/frontend.yaml
+
+      # ----------------------------------------------------------
+      # Wait for backend
+      # ----------------------------------------------------------
 
       - name: Wait for backend
         run: |
@@ -249,12 +354,20 @@ jobs:
             -n pipelineshield \
             --timeout=180s
 
+      # ----------------------------------------------------------
+      # Wait for frontend
+      # ----------------------------------------------------------
+
       - name: Wait for frontend
         run: |
           kubectl rollout status \
             deployment/pipelineshield-frontend \
             -n pipelineshield \
             --timeout=180s
+
+      # ----------------------------------------------------------
+      # Create backend port forward
+      # ----------------------------------------------------------
 
       - name: Create backend port forward
         run: |
@@ -265,6 +378,10 @@ jobs:
 
           sleep 10
 
+      # ----------------------------------------------------------
+      # Backend health check
+      # ----------------------------------------------------------
+
       - name: Backend health check
         run: |
           curl --fail \
@@ -272,10 +389,18 @@ jobs:
             --retry-delay 3 \
             http://127.0.0.1:8000/api/docs
 
+      # ----------------------------------------------------------
+      # OpenAPI check
+      # ----------------------------------------------------------
+
       - name: API OpenAPI check
         run: |
           curl --fail \
             http://127.0.0.1:8000/openapi.json
+
+      # ----------------------------------------------------------
+      # Deployment diagnostics
+      # ----------------------------------------------------------
 
       - name: Deployment status
         if: always()
