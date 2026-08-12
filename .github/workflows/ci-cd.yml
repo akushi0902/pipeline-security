@@ -257,6 +257,7 @@ jobs:
   deploy-local:
     name: Deploy to Kind Kubernetes
     runs-on: ubuntu-latest
+    timeout-minutes: 90
 
     needs:
       - validate-kubernetes
@@ -428,6 +429,106 @@ jobs:
           curl --fail \
             http://127.0.0.1:8000/openapi.json
       # ----------------------------------------------------------
+      # Create frontend port forward
+      # ----------------------------------------------------------
+
+      - name: Create frontend port forward
+        run: |
+          kubectl port-forward \
+            svc/pipelineshield-frontend \
+            8080:80 \
+            -n pipelineshield \
+            > /tmp/frontend.log 2>&1 &
+          sleep 10
+      # ----------------------------------------------------------
+      # Frontend health check
+      # ----------------------------------------------------------
+
+      - name: Frontend health check
+        run: |
+          curl --fail \
+            --retry 10 \
+            --retry-delay 3 \
+            http://127.0.0.1:8080
+      # ----------------------------------------------------------
+      # Install cloudflared
+      # ----------------------------------------------------------
+      #
+      # cloudflared's "quick tunnel" mode requires no account,
+      # token, or DNS setup - it opens a random, free, public
+      # https://<random>.trycloudflare.com URL that proxies to
+      # a localhost port on this runner. This is what makes the
+      # app reachable online, since GitHub Pages cannot serve a
+      # live backend/cluster (Pages is static-file hosting only).
+      # ----------------------------------------------------------
+
+      - name: Install cloudflared
+        run: |
+          curl -sSLo cloudflared \
+            https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64
+          chmod +x cloudflared
+          sudo mv cloudflared /usr/local/bin/cloudflared
+          cloudflared --version
+      # ----------------------------------------------------------
+      # Start public tunnels
+      # ----------------------------------------------------------
+
+      - name: Start public tunnels
+        run: |
+          cloudflared tunnel --url http://127.0.0.1:8000 \
+            > /tmp/backend-tunnel.log 2>&1 &
+          cloudflared tunnel --url http://127.0.0.1:8080 \
+            > /tmp/frontend-tunnel.log 2>&1 &
+          echo "Waiting for tunnels to come up..."
+          sleep 15
+      # ----------------------------------------------------------
+      # Print public URLs
+      # ----------------------------------------------------------
+
+      - name: Print public URLs
+        run: |
+          BACKEND_URL=$(grep -o 'https://[a-zA-Z0-9.-]*\.trycloudflare\.com' /tmp/backend-tunnel.log | head -n1)
+          FRONTEND_URL=$(grep -o 'https://[a-zA-Z0-9.-]*\.trycloudflare\.com' /tmp/frontend-tunnel.log | head -n1)
+
+          if [ -z "$BACKEND_URL" ] || [ -z "$FRONTEND_URL" ]; then
+            echo "Tunnel URL not found yet, retrying..."
+            sleep 15
+            BACKEND_URL=$(grep -o 'https://[a-zA-Z0-9.-]*\.trycloudflare\.com' /tmp/backend-tunnel.log | head -n1)
+            FRONTEND_URL=$(grep -o 'https://[a-zA-Z0-9.-]*\.trycloudflare\.com' /tmp/frontend-tunnel.log | head -n1)
+          fi
+
+          echo "=========================================="
+          echo "APP IS LIVE - PUBLIC URLS"
+          echo "=========================================="
+          echo "Frontend:      $FRONTEND_URL"
+          echo "Backend API:   $BACKEND_URL"
+          echo "Swagger docs:  $BACKEND_URL/api/docs"
+          echo "=========================================="
+          echo "These URLs stay live for about 1 hour,"
+          echo "while this job is running."
+          echo "=========================================="
+
+          {
+            echo "## 🚀 App is live for ~1 hour"
+            echo ""
+            echo "| Service | URL |"
+            echo "|---|---|"
+            echo "| Frontend | $FRONTEND_URL |"
+            echo "| Backend API | $BACKEND_URL |"
+            echo "| Swagger docs | $BACKEND_URL/api/docs |"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+          echo "BACKEND_URL=$BACKEND_URL" >> "$GITHUB_ENV"
+          echo "FRONTEND_URL=$FRONTEND_URL" >> "$GITHUB_ENV"
+      # ----------------------------------------------------------
+      # Keep app alive for 1 hour
+      # ----------------------------------------------------------
+
+      - name: Keep app alive for 1 hour
+        run: |
+          echo "Keeping cluster and tunnels alive for 60 minutes..."
+          sleep 3600
+      # ----------------------------------------------------------
       # Deployment diagnostics
       # ----------------------------------------------------------
 
@@ -468,3 +569,34 @@ jobs:
           echo "SWAGGER"
           echo "=========================================="
           echo "http://127.0.0.1:8000/api/docs"
+      # ----------------------------------------------------------
+      # Final public access URLs
+      # ----------------------------------------------------------
+
+      - name: Final public access URLs
+        if: always()
+        run: |
+          echo "=========================================="
+          echo "🚀 APP ACCESS URLS (via cloudflared tunnel)"
+          echo "=========================================="
+          echo "Frontend:      ${FRONTEND_URL:-not available}"
+          echo "Backend API:   ${BACKEND_URL:-not available}"
+          echo "Swagger docs:  ${BACKEND_URL:-not available}/api/docs"
+          echo "OpenAPI spec:  ${BACKEND_URL:-not available}/openapi.json"
+          echo "=========================================="
+          echo "These URLs were live for ~1 hour during this"
+          echo "job run. Once the job ends, they stop working."
+          echo "Check the Summary tab above for clickable links."
+          echo "=========================================="
+
+          {
+            echo ""
+            echo "## ✅ Final Access URLs"
+            echo ""
+            echo "| Service | URL |"
+            echo "|---|---|"
+            echo "| Frontend | ${FRONTEND_URL:-not available} |"
+            echo "| Backend API | ${BACKEND_URL:-not available} |"
+            echo "| Swagger docs | ${BACKEND_URL:-not available}/api/docs |"
+            echo "| OpenAPI spec | ${BACKEND_URL:-not available}/openapi.json |"
+          } >> "$GITHUB_STEP_SUMMARY"
