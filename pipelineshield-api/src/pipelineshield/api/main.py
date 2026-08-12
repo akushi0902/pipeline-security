@@ -5,12 +5,15 @@ dependencies (session, current actor) without mutating global state.
 """
 from __future__ import annotations
 
+import os
 import secrets as _secrets
+import uuid
 
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 
 from pipelineshield.api.middleware.body_size_limit import BodySizeLimitMiddleware
+from pipelineshield.api.security.authz_guard import CurrentActor, get_current_actor
 from pipelineshield.api.security.scope import AuthorizationError, ResourceNotVisibleError
 from pipelineshield.api.v1.routers.admin_router import router as admin_router
 from pipelineshield.api.v1.routers.analysis_router import router as analysis_router
@@ -37,6 +40,30 @@ def create_app() -> FastAPI:
     app.include_router(analysis_router, prefix="/api/v1")
     app.include_router(admin_router, prefix="/api/v1")
     app.include_router(governance_router, prefix="/api/v1")
+
+    # ------------------------------------------------------------------
+    # DEV-ONLY AUTH BYPASS
+    # ------------------------------------------------------------------
+    # get_current_actor is currently a stub that always raises 401 (OIDC
+    # login has not been wired up yet). Setting DISABLE_AUTH=true injects
+    # a fake, fully-privileged actor via FastAPI's dependency_overrides
+    # so the app is usable in local/demo/CI environments right now.
+    #
+    # This is opt-in only: the env var must be explicitly set, so a real
+    # deployment (where DISABLE_AUTH is unset) behaves exactly as before.
+    # Once real OIDC lands, this block should be deleted.
+    # ------------------------------------------------------------------
+    if os.getenv("DISABLE_AUTH", "false").lower() == "true":
+
+        async def _dev_actor() -> CurrentActor:
+            return CurrentActor(
+                user_id=uuid.UUID("00000000-0000-0000-0000-000000000001"),
+                persona="appsec_lead",  # broadest capability set, incl. admin + governance
+                workspace_id=uuid.UUID("00000000-0000-0000-0000-000000000001"),
+                display_name="Dev User (auth disabled)",
+            )
+
+        app.dependency_overrides[get_current_actor] = _dev_actor
 
     # RFC 7807 handler for AuthorizationError (403) — resource visible, verb forbidden.
     @app.exception_handler(AuthorizationError)
