@@ -257,7 +257,7 @@ jobs:
   deploy-local:
     name: Deploy to Kind Kubernetes
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 55
 
     needs:
       - validate-kubernetes
@@ -509,7 +509,7 @@ jobs:
           echo "=========================================="
 
           {
-            echo "## 🚀 App is live for ~1 hour"
+            echo "## 🚀 App is live for ~30 minutes"
             echo ""
             echo "| Service | URL |"
             echo "|---|---|"
@@ -520,6 +520,14 @@ jobs:
 
           echo "BACKEND_URL=$BACKEND_URL" >> "$GITHUB_ENV"
           echo "FRONTEND_URL=$FRONTEND_URL" >> "$GITHUB_ENV"
+      # ----------------------------------------------------------
+      # Keep app alive for 30 minutes
+      # ----------------------------------------------------------
+
+      - name: Keep app alive for 30 minutes
+        run: |
+          echo "Keeping cluster and tunnels alive for 30 minutes..."
+          sleep 1800
       # ----------------------------------------------------------
       # Deployment diagnostics
       # ----------------------------------------------------------
@@ -576,8 +584,8 @@ jobs:
           echo "Swagger docs:  ${BACKEND_URL:-not available}/api/docs"
           echo "OpenAPI spec:  ${BACKEND_URL:-not available}/openapi.json"
           echo "=========================================="
-          echo "These URLs were live for ~1 hour during this"
-          echo "job run. Once the job ends, they stop working."
+          echo "These URLs were live for ~30 minutes during"
+          echo "this job run. Once the job ends, they stop working."
           echo "Check the Summary tab above for clickable links."
           echo "=========================================="
 
