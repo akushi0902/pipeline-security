@@ -66,17 +66,40 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: "22"
+          cache: npm
+          cache-dependency-path: pipelineshield-web/package-lock.json
 
       - name: Check Node and npm versions
         run: |
           node --version
           npm --version
 
-      - name: Install frontend dependencies
-        run: npm install
+      # ----------------------------------------------------------
+      # Generate package-lock.json
+      # ----------------------------------------------------------
+
+      - name: Generate package-lock.json
+        run: |
+          echo "Generating package-lock.json..."
+
+          npm install --package-lock-only
+
+          echo "Verifying package-lock.json..."
+
+          test -f package-lock.json
+
+          ls -lh package.json package-lock.json
 
       # ----------------------------------------------------------
-      # Remove tests from CI workspace before TypeScript build
+      # Install dependencies
+      # ----------------------------------------------------------
+
+      - name: Install frontend dependencies
+        run: |
+          npm ci
+
+      # ----------------------------------------------------------
+      # Remove frontend tests
       # ----------------------------------------------------------
 
       - name: Remove frontend test files
@@ -109,8 +132,13 @@ jobs:
             -o -name "*.spec.tsx" \
           \) -print || true
 
+      # ----------------------------------------------------------
+      # Build frontend
+      # ----------------------------------------------------------
+
       - name: Build frontend
-        run: npm run build
+        run: |
+          npm run build
 
 
   # ============================================================
@@ -130,7 +158,38 @@ jobs:
         uses: actions/checkout@v4
 
       # ----------------------------------------------------------
-      # Remove frontend tests before Docker build
+      # Setup Node
+      # ----------------------------------------------------------
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Check Node and npm versions
+        run: |
+          node --version
+          npm --version
+
+      # ----------------------------------------------------------
+      # Generate package-lock.json inside Docker build context
+      # ----------------------------------------------------------
+
+      - name: Generate frontend package-lock.json
+        working-directory: pipelineshield-web
+        run: |
+          echo "Generating package-lock.json for Docker build..."
+
+          npm install --package-lock-only
+
+          echo "Verifying package-lock.json..."
+
+          test -f package-lock.json
+
+          ls -lh package.json package-lock.json
+
+      # ----------------------------------------------------------
+      # Remove frontend test files from Docker build context
       # ----------------------------------------------------------
 
       - name: Remove frontend test files
@@ -143,7 +202,40 @@ jobs:
             -o -name "*.test.tsx" \
             -o -name "*.spec.ts" \
             -o -name "*.spec.tsx" \
-          \) -delete || true
+          \) -print || true
+
+          find pipelineshield-web/src -type f \( \
+            -name "*.test.ts" \
+            -o -name "*.test.tsx" \
+            -o -name "*.spec.ts" \
+            -o -name "*.spec.tsx" \
+          \) -delete
+
+          echo "Test files remaining:"
+
+          find pipelineshield-web/src -type f \( \
+            -name "*.test.ts" \
+            -o -name "*.test.tsx" \
+            -o -name "*.spec.ts" \
+            -o -name "*.spec.tsx" \
+          \) -print || true
+
+      # ----------------------------------------------------------
+      # Verify Docker build context
+      # ----------------------------------------------------------
+
+      - name: Verify frontend Docker build context
+        run: |
+          echo "Frontend package files:"
+          ls -lh pipelineshield-web/package.json
+          ls -lh pipelineshield-web/package-lock.json
+
+          echo "Frontend source size:"
+          du -sh pipelineshield-web
+
+      # ----------------------------------------------------------
+      # Build backend image
+      # ----------------------------------------------------------
 
       - name: Build backend image
         run: |
@@ -151,11 +243,19 @@ jobs:
             -t pipelineshield-backend:${{ github.sha }} \
             ./pipelineshield-api
 
+      # ----------------------------------------------------------
+      # Build frontend image
+      # ----------------------------------------------------------
+
       - name: Build frontend image
         run: |
           docker build \
             -t pipelineshield-frontend:${{ github.sha }} \
             ./pipelineshield-web
+
+      # ----------------------------------------------------------
+      # Verify images
+      # ----------------------------------------------------------
 
       - name: Verify Docker images
         run: |
@@ -165,17 +265,6 @@ jobs:
   # ============================================================
   # KUBERNETES MANIFEST VALIDATION
   # ============================================================
-  #
-  # IMPORTANT:
-  # We do NOT use:
-  #
-  # kubectl apply --dry-run=client
-  #
-  # because kubectl may still attempt to contact an API server
-  # when no Kubernetes cluster is configured.
-  #
-  # Instead, validate that the YAML files are syntactically valid.
-  #
 
   validate-kubernetes:
     name: Validate Kubernetes Manifests
@@ -237,6 +326,7 @@ jobs:
                           print(
                               f"WARNING: {file} document {index} is empty"
                           )
+
                       elif not isinstance(document, dict):
                           print(
                               f"ERROR: {file} document {index} "
@@ -244,8 +334,7 @@ jobs:
                           )
                           failed = True
 
-                  if not failed:
-                      print(f"OK: {file}")
+                  print(f"OK: {file}")
 
               except yaml.YAMLError as exc:
                   print(f"ERROR: Invalid YAML in {file}")
@@ -262,10 +351,6 @@ jobs:
   # ============================================================
   # LOCAL KUBERNETES DEPLOYMENT
   # ============================================================
-  #
-  # Kind creates a real Kubernetes cluster here.
-  # Therefore kubectl commands are safe in this job.
-  #
 
   deploy-local:
     name: Deploy to Local Kubernetes
@@ -278,6 +363,10 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      # ----------------------------------------------------------
+      # Create real Kubernetes cluster
+      # ----------------------------------------------------------
+
       - name: Create Kind cluster
         uses: helm/kind-action@v1
         with:
@@ -289,7 +378,26 @@ jobs:
           kubectl get nodes
 
       # ----------------------------------------------------------
-      # Build images
+      # Setup Node
+      # ----------------------------------------------------------
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      # ----------------------------------------------------------
+      # Generate package-lock.json
+      # ----------------------------------------------------------
+
+      - name: Generate frontend package-lock.json
+        working-directory: pipelineshield-web
+        run: |
+          npm install --package-lock-only
+          test -f package-lock.json
+
+      # ----------------------------------------------------------
+      # Remove frontend tests
       # ----------------------------------------------------------
 
       - name: Remove frontend test files
@@ -301,6 +409,10 @@ jobs:
             -o -name "*.spec.ts" \
             -o -name "*.spec.tsx" \
           \) -delete || true
+
+      # ----------------------------------------------------------
+      # Build images
+      # ----------------------------------------------------------
 
       - name: Build backend image
         run: |
@@ -331,7 +443,7 @@ jobs:
             --name pipelineshield
 
       # ----------------------------------------------------------
-      # Deploy Kubernetes resources
+      # Deploy namespace
       # ----------------------------------------------------------
 
       - name: Deploy namespace
@@ -339,10 +451,18 @@ jobs:
           kubectl apply \
             -f k8s/namespace.yaml
 
+      # ----------------------------------------------------------
+      # Deploy backend
+      # ----------------------------------------------------------
+
       - name: Deploy backend
         run: |
           kubectl apply \
             -f k8s/backend.yaml
+
+      # ----------------------------------------------------------
+      # Deploy frontend
+      # ----------------------------------------------------------
 
       - name: Deploy frontend
         run: |
@@ -350,7 +470,7 @@ jobs:
             -f k8s/frontend.yaml
 
       # ----------------------------------------------------------
-      # Wait for deployments
+      # Wait for backend
       # ----------------------------------------------------------
 
       - name: Wait for backend
@@ -360,6 +480,10 @@ jobs:
             -n pipelineshield \
             --timeout=180s
 
+      # ----------------------------------------------------------
+      # Wait for frontend
+      # ----------------------------------------------------------
+
       - name: Wait for frontend
         run: |
           kubectl rollout status \
@@ -368,7 +492,26 @@ jobs:
             --timeout=180s
 
       # ----------------------------------------------------------
-      # Backend health check
+      # Show Kubernetes resources
+      # ----------------------------------------------------------
+
+      - name: Show deployment status
+        run: |
+          echo "=== PODS ==="
+          kubectl get pods \
+            -n pipelineshield \
+            -o wide
+
+          echo "=== SERVICES ==="
+          kubectl get svc \
+            -n pipelineshield
+
+          echo "=== DEPLOYMENTS ==="
+          kubectl get deployments \
+            -n pipelineshield
+
+      # ----------------------------------------------------------
+      # Backend port forwarding
       # ----------------------------------------------------------
 
       - name: Create backend port forward
@@ -381,6 +524,10 @@ jobs:
 
           sleep 10
 
+      # ----------------------------------------------------------
+      # Backend health check
+      # ----------------------------------------------------------
+
       - name: Backend health check
         run: |
           curl --fail \
@@ -388,16 +535,45 @@ jobs:
             --retry-delay 3 \
             http://127.0.0.1:8000/api/docs
 
+      # ----------------------------------------------------------
+      # OpenAPI check
+      # ----------------------------------------------------------
+
       - name: API OpenAPI check
         run: |
           curl --fail \
             http://127.0.0.1:8000/openapi.json
 
       # ----------------------------------------------------------
+      # Frontend port forwarding
+      # ----------------------------------------------------------
+
+      - name: Create frontend port forward
+        run: |
+          kubectl port-forward \
+            svc/pipelineshield-frontend \
+            8080:80 \
+            -n pipelineshield \
+            > /tmp/frontend.log 2>&1 &
+
+          sleep 10
+
+      # ----------------------------------------------------------
+      # Frontend health check
+      # ----------------------------------------------------------
+
+      - name: Frontend health check
+        run: |
+          curl --fail \
+            --retry 10 \
+            --retry-delay 3 \
+            http://127.0.0.1:8080
+
+      # ----------------------------------------------------------
       # Deployment diagnostics
       # ----------------------------------------------------------
 
-      - name: Deployment status
+      - name: Deployment diagnostics
         if: always()
         run: |
           echo "========================================"
@@ -441,7 +617,7 @@ jobs:
             --tail=100 || true
 
           echo "========================================"
-          echo "BACKEND API"
+          echo "BACKEND PORT"
           echo "========================================"
 
           echo "http://127.0.0.1:8000"
@@ -451,3 +627,21 @@ jobs:
           echo "========================================"
 
           echo "http://127.0.0.1:8000/api/docs"
+
+          echo "========================================"
+          echo "FRONTEND"
+          echo "========================================"
+
+          echo "http://127.0.0.1:8080"
+
+          echo "========================================"
+          echo "BACKEND PORT-FORWARD LOG"
+          echo "========================================"
+
+          cat /tmp/backend.log || true
+
+          echo "========================================"
+          echo "FRONTEND PORT-FORWARD LOG"
+          echo "========================================"
+
+          cat /tmp/frontend.log || true
