@@ -1,0 +1,11 @@
+# Ground truth for GitHub Actions hardened variant.
+# Zero seeded gaps — this variant asserts zero violated outcomes.
+# Detection rate is not_applicable (N/A) for cases with no seeded gaps.
+format: github_actions
+variant: hardened
+description: >
+  Fully hardened pipeline with pinned actions, secrets scanning, SAST,
+  dependency and IaC scanning, OIDC authentication, cosign signing,
+  provenance attestation, SBOM generation, and an environment approval gate.
+seeded_gaps: []
+unassessable_fragments: []

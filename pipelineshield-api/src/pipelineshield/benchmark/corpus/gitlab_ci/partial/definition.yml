@@ -1,0 +1,26 @@
+stages:
+  - security
+  - build
+  - deploy
+
+variables:
+  IMAGE: myregistry.example.com/myapp
+
+security-scan:
+  stage: security
+  script:
+    - gitleaks detect --source . --exit-code 1
+    - semgrep --config=auto .
+    - trivy fs --exit-code 1 .
+
+build-job:
+  stage: build
+  script:
+    - docker build -t $IMAGE:$CI_COMMIT_SHA .
+    - docker push $IMAGE:$CI_COMMIT_SHA
+
+deploy-job:
+  stage: deploy
+  script:
+    - PASSWORD=hardcoded_database_password_value
+    - kubectl apply -f k8s/

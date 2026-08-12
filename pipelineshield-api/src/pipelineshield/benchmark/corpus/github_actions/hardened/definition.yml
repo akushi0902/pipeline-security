@@ -1,0 +1,42 @@
+name: Hardened CI Pipeline
+on:
+  push:
+    branches: [main]
+jobs:
+  security-scan:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@abc1234def5678901234567890123456789012345
+      - name: Secrets scan
+        run: gitleaks detect --source . --exit-code 1
+      - name: SAST
+        run: semgrep --config=auto .
+      - name: Dependency scan
+        run: trivy fs --exit-code 1 .
+      - name: IaC scan
+        run: checkov -d . --quiet
+  build-sign:
+    runs-on: ubuntu-latest
+    needs: security-scan
+    permissions:
+      contents: read
+      id-token: write
+      packages: write
+    environment: production
+    steps:
+      - uses: actions/checkout@abc1234def5678901234567890123456789012345
+      - name: Configure AWS OIDC
+        uses: aws-actions/configure-aws-credentials@111122223333444455556666777788889999000011112222
+      - name: Build image
+        run: docker build -t myimage:${{ github.sha }} .
+      - name: Sign with cosign
+        run: cosign sign --key env://COSIGN_KEY myimage:${{ github.sha }}
+      - name: Attest provenance
+        run: cosign attest --predicate provenance.json myimage:${{ github.sha }}
+      - name: Generate SBOM
+        run: syft myimage:${{ github.sha }} -o cyclonedx-json > sbom.json
+      - name: Push image
+        run: docker push myimage:${{ github.sha }}

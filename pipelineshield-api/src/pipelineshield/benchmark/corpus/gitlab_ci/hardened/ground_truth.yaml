@@ -1,0 +1,10 @@
+# Ground truth for GitLab CI hardened variant.
+# Zero seeded gaps — asserts zero violated outcomes.
+format: gitlab_ci
+variant: hardened
+description: >
+  Fully hardened GitLab CI pipeline with secrets scanning, SAST, dependency and IaC
+  scanning, SBOM generation, cosign signing, provenance attestation via OIDC,
+  and a manual deployment approval gate.
+seeded_gaps: []
+unassessable_fragments: []

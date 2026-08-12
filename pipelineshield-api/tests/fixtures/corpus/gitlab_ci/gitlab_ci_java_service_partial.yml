@@ -1,0 +1,28 @@
+stages:
+  - security
+  - build
+  - deploy
+
+variables:
+  IMAGE: registry.example.com/java-service
+
+security-scan:
+  stage: security
+  script:
+    - gitleaks detect --source . --exit-code 1
+    - semgrep --config=auto .
+    - trivy fs --exit-code 1 .
+
+build-job:
+  stage: build
+  script:
+    - mvn package -DskipTests
+    - docker build -t $IMAGE:$CI_COMMIT_SHA .
+    - docker push $IMAGE:$CI_COMMIT_SHA
+  variables:
+    DEPLOY_KEY: EXAMPLE_hardcoded_deploy_key_abc789_do_not_use
+
+deploy-job:
+  stage: deploy
+  script:
+    - kubectl apply -f k8s/

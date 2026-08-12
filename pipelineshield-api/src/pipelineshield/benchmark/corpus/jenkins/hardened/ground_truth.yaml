@@ -1,0 +1,10 @@
+# Ground truth for Jenkins hardened variant.
+# Zero seeded gaps — asserts zero violated outcomes.
+format: jenkins
+variant: hardened
+description: >
+  Fully hardened declarative Jenkinsfile with secrets scanning, SAST, dependency
+  and IaC scanning, SBOM generation via syft, cosign signing, provenance
+  attestation, and a timeout-based approval gate before deployment.
+seeded_gaps: []
+unassessable_fragments: []

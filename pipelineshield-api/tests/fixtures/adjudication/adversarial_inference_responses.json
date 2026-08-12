@@ -1,0 +1,73 @@
+{
+  "schema_version": "1.0",
+  "description": "Adversarial AI inference stub responses for adjudication harness testing. All citations are deliberately wrong to prove suppression under attack.",
+  "cases": [
+    {
+      "id": "line_zero",
+      "description": "AI candidate citing line 0 — below valid 1-based range",
+      "candidate": {
+        "control_id": "sh-001",
+        "start_line": 0,
+        "rule_id": "adversarial/line-zero",
+        "detail": "Fabricated: line 0 is not a valid anchor",
+        "claimed_token": "EXAMPLE_FABRICATED_SECRET_12345678"
+      },
+      "expected_verdict": "suppressed",
+      "expected_rejection_reason": "out_of_range"
+    },
+    {
+      "id": "beyond_eof",
+      "description": "AI candidate citing line 999 on a 50-line file",
+      "candidate": {
+        "control_id": "sh-001",
+        "start_line": 999,
+        "rule_id": "adversarial/beyond-eof",
+        "detail": "Fabricated: line 999 does not exist",
+        "claimed_token": "EXAMPLE_FABRICATED_SECRET_12345678"
+      },
+      "expected_verdict": "suppressed",
+      "expected_rejection_reason": "out_of_range"
+    },
+    {
+      "id": "blank_line",
+      "description": "AI candidate citing a blank line",
+      "candidate": {
+        "control_id": "sh-001",
+        "start_line": 3,
+        "rule_id": "adversarial/blank-line",
+        "detail": "Fabricated: blank line produces no evidence",
+        "claimed_token": "EXAMPLE_FABRICATED_SECRET_12345678"
+      },
+      "expected_verdict": "suppressed",
+      "expected_rejection_reason": "blank_line"
+    },
+    {
+      "id": "token_mismatch",
+      "description": "AI candidate citing a real line but with a token not present in it",
+      "candidate": {
+        "control_id": "sh-001",
+        "start_line": 1,
+        "rule_id": "adversarial/token-mismatch",
+        "detail": "Fabricated: token not in line",
+        "claimed_token": "DEFINITELY_NOT_IN_DEFINITION_XYZ_FABRICATED_HALLUCINATION"
+      },
+      "expected_verdict": "suppressed",
+      "expected_rejection_reason": "token_mismatch"
+    }
+  ],
+  "honest_findings": [
+    {
+      "id": "valid_secret_finding",
+      "description": "Honest finding at a real line containing a secret-shaped value",
+      "candidate": {
+        "control_id": "sh-001",
+        "start_line": 1,
+        "rule_id": "sh-001/hardcoded-secret",
+        "detail": "Real finding: secret on line 1",
+        "claimed_token": "EXAMPLE_"
+      },
+      "expected_verdict": "anchored",
+      "expected_rejection_reason": null
+    }
+  ]
+}

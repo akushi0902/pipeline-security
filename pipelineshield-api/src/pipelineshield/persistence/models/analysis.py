@@ -87,6 +87,14 @@ class Analysis(Base):
             "Not Assessable categories."
         ),
     )
+    unscorable_reason: Mapped[str | None] = mapped_column(
+        String(255),
+        nullable=True,
+        comment=(
+            "Populated when all controls are Not Assessable and no "
+            "numeric score can be computed."
+        ),
+    )
     status: Mapped[str] = mapped_column(
         String(32),
         nullable=False,
@@ -94,6 +102,14 @@ class Analysis(Base):
         comment=(
             "Analysis lifecycle status: completed, degraded "
             "(model timeout), failed."
+        ),
+    )
+    duration_ms: Mapped[int | None] = mapped_column(
+        Integer,
+        nullable=True,
+        comment=(
+            "Wall-clock milliseconds from analysis start to completion. "
+            "Null for analyses created before migration 0006."
         ),
     )
     created_at: Mapped[datetime] = mapped_column(

@@ -1,0 +1,28 @@
+# Ground truth for GitLab CI insecure variant.
+format: gitlab_ci
+variant: insecure
+description: >
+  GitLab CI pipeline with hardcoded API token in variables block and
+  no security controls (no secrets scan, no signing, no SBOM, no approval gate).
+seeded_gaps:
+  - control_id: sh-001
+    expected_line: 6
+    severity: critical
+    description: Hardcoded API_TOKEN value in variables block
+  - control_id: sh-002
+    expected_line: 11
+    severity: high
+    description: No secrets scanning tool (gitleaks/trufflehog absent)
+  - control_id: as-001
+    expected_line: 11
+    severity: high
+    description: No artifact signing step (cosign/sigstore absent)
+  - control_id: sbom-001
+    expected_line: 11
+    severity: medium
+    description: No SBOM generation step (syft/cyclonedx absent)
+  - control_id: ag-001
+    expected_line: 1
+    severity: high
+    description: No manual approval gate (when:manual absent)
+unassessable_fragments: []

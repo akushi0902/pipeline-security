@@ -1,0 +1,23 @@
+name: Node Service CI — Insecure
+on:
+  push:
+    branches: [main]
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v3
+      - name: Install dependencies
+        run: npm ci
+      - name: Run tests
+        run: npm test
+      - name: Build
+        run: npm run build
+      - name: Deploy
+        env:
+          DEPLOY_TOKEN: EXAMPLE_hardcoded_deploy_token_xyz789_do_not_use
+        run: |
+          echo "deploying to production"
+          ./scripts/deploy.sh

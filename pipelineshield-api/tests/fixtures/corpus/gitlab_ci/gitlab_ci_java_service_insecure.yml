@@ -1,0 +1,25 @@
+stages:
+  - build
+  - test
+  - deploy
+
+variables:
+  IMAGE: registry.example.com/java-service
+  DB_PASS: EXAMPLE_hardcoded_database_password_xyz456_do_not_use
+
+build-job:
+  stage: build
+  script:
+    - mvn package -DskipTests
+    - docker build -t $IMAGE:$CI_COMMIT_SHA .
+    - docker push $IMAGE:$CI_COMMIT_SHA
+
+test-job:
+  stage: test
+  script:
+    - mvn test
+
+deploy-job:
+  stage: deploy
+  script:
+    - kubectl apply -f k8s/

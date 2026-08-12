@@ -21,3 +21,45 @@
 - **Files:** 20 (+1816/-58)
 - **Duration:** 1199ss
 - **Approach:** Implemented the versioned immutable control catalogue as an append-only SQLAlchemy 2.0 model with a dialect-aware DialectJSON type (JSONB on PostgreSQL, JSON on SQLite). Added a forward-only Alembic 0002 migration using batch_alter_table for cross-dialect compatibility that renames the scaffold columns (version_number→version, description→change_notes, controls→snapshot) and adds status, grade_bands, created_by (FK app_user), and content_checksum. Defined full Pydantic v2 CatalogueSnapshot schemas with model_validators for weight totals, unique IDs, severity enum, and grade band coverage 0-100. Implemented CatalogueRepository (abstract + SQLAlchemy) with get_active, get_by_version, list_versions, and create_version (INSERT-only, raises CatalogueVersionConflictError on duplicate). Added an idempotent seed routine that validates the committed catalogue_v1.json fixture before inserting.
+
+## WO-019: User Story: WO-019 - Seeded Corpus Detection Benchmark Harness With Release Gate
+- **Status:** completed
+- **Commit:** `a4e6227`
+- **Files:** 28 (+2701/-0)
+- **Duration:** 1462ss
+- **Approach:** N/A
+
+## WO-020: User Story: WO-020 - Deterministic weighted scoring engine with versioned catalogue
+- **Status:** completed
+- **Commit:** `1de657c`
+- **Files:** 30 (+1657/-0)
+- **Duration:** 497ss
+- **Approach:** N/A
+
+## WO-042: User Story: WO-042 - Governance Console For Audit, Retention And Exports
+- **Status:** completed
+- **Commit:** `9f96073`
+- **Files:** 42 (+2648/-0)
+- **Duration:** 854ss
+- **Approach:** N/A
+
+## WO-045: User Story: WO-045 - Build Seeded Benchmark Corpus With Ground-Truth Manifest
+- **Status:** completed
+- **Commit:** `231c5f4`
+- **Files:** 24 (+0/-0)
+- **Duration:** 941ss
+- **Approach:** Authored 15 fully synthetic pipeline definitions (6 GitHub Actions, 5 GitLab CI, 4 Jenkins) in insecure/partial/hardened/not-assessable variants. Created a new GroundTruthManifest Pydantic v2 schema in ground_truth.py with SeededGap (expected_status, rationale), NegativeExpectation (for false-positive measurement), and UnassessableFragment models. Wrote a top-level ground_truth.yaml covering all 15 files with 57 seeded gaps, 48 negative expectations, and 3 NA fragments. Updated tests/fixtures/__init__.py with cached load_ground_truth() and load_corpus() helpers. All credential-shaped literals use the EXAMPLE_ prefix; all files are under 500 lines.
+
+## WO-046: User Story: WO-046 - Detection Rate Benchmark Harness With Per-Format Gates
+- **Status:** completed
+- **Commit:** `82a9f36`
+- **Files:** 12 (+0/-0)
+- **Duration:** 710ss
+- **Approach:** N/A
+
+## WO-044: User Story: WO-044 - Pilot Sign-Off Records And GA Gate Status View
+- **Status:** completed
+- **Commit:** `574c918`
+- **Files:** 15 (+2083/-1)
+- **Duration:** 752ss
+- **Approach:** N/A

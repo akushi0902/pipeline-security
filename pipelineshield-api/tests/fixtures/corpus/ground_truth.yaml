@@ -1,0 +1,753 @@
+corpus_version: "1.0.0"
+catalogue_version: 1
+
+# ---------------------------------------------------------------------------
+# Corpus file inventory — 15 definitions, all < 500 lines
+# ---------------------------------------------------------------------------
+corpus_files:
+  # GitHub Actions (6)
+  - file: github_actions/github_actions_node_service_insecure.yml
+    format: github_actions
+    variant: insecure
+    line_count: 23
+    description: Node.js service with hardcoded secret, unpinned action, overly-permissive token, and missing security controls.
+  - file: github_actions/github_actions_node_service_partial.yml
+    format: github_actions
+    variant: partial
+    line_count: 30
+    description: Node.js service with secret scanning and SAST present but still has hardcoded secret and missing signing/SBOM/approval.
+  - file: github_actions/github_actions_node_service_hardened.yml
+    format: github_actions
+    variant: hardened
+    line_count: 43
+    description: Fully hardened Node.js service with all nine control categories satisfied.
+  - file: github_actions/github_actions_python_api_insecure.yml
+    format: github_actions
+    variant: insecure
+    line_count: 24
+    description: Python API with pull_request_target trigger, unresolvable composite action (NA), hardcoded secret, and missing controls.
+  - file: github_actions/github_actions_python_api_partial.yml
+    format: github_actions
+    variant: partial
+    line_count: 31
+    description: Python API with secret scanning and dependency audit present but still has hardcoded secret and missing controls.
+  - file: github_actions/github_actions_python_api_hardened.yml
+    format: github_actions
+    variant: hardened
+    line_count: 43
+    description: Fully hardened Python API with all nine control categories satisfied.
+
+  # GitLab CI (5)
+  - file: gitlab_ci/gitlab_ci_java_service_insecure.yml
+    format: gitlab_ci
+    variant: insecure
+    line_count: 25
+    description: Java service with hardcoded DB password in global variables and no security controls.
+  - file: gitlab_ci/gitlab_ci_java_service_partial.yml
+    format: gitlab_ci
+    variant: partial
+    line_count: 28
+    description: Java service with secret scanning and SAST present but still has hardcoded key and missing controls.
+  - file: gitlab_ci/gitlab_ci_java_service_hardened.yml
+    format: gitlab_ci
+    variant: hardened
+    line_count: 43
+    description: Fully hardened Java service with all nine control categories satisfied.
+  - file: gitlab_ci/gitlab_ci_python_service_insecure.yml
+    format: gitlab_ci
+    variant: insecure
+    line_count: 21
+    description: Python service with hardcoded API token in global variables and no security controls.
+  - file: gitlab_ci/gitlab_ci_remote_include_na.yml
+    format: gitlab_ci
+    variant: not_assessable
+    line_count: 16
+    description: GitLab CI file with include:remote pointing at a synthetic unreachable URL — imported controls are Not Assessable.
+
+  # Jenkins (4)
+  - file: jenkins/jenkins_java_service_insecure.groovy
+    format: jenkins
+    variant: insecure
+    line_count: 29
+    description: Declarative Jenkinsfile with hardcoded DB password in post block and no security controls.
+  - file: jenkins/jenkins_java_service_partial.groovy
+    format: jenkins
+    variant: partial
+    line_count: 26
+    description: Jenkinsfile with secret scanning, SAST, and dependency scan present but hardcoded service key in deploy stage.
+  - file: jenkins/jenkins_java_service_hardened.groovy
+    format: jenkins
+    variant: hardened
+    line_count: 59
+    description: Fully hardened Jenkinsfile with least-privilege Kubernetes agent, SHA-pinned image, all scans, signing, SBOM, and manual approval gate.
+  - file: jenkins/jenkins_scripted_island.groovy
+    format: jenkins
+    variant: not_assessable
+    line_count: 32
+    description: Declarative pipeline with an intentional scripted script block — the block is Not Assessable by static analysis.
+
+# ---------------------------------------------------------------------------
+# Seeded gaps — all gaps declared with expected_status: missing
+# Each presence-based gap (hardcoded secret) has a precise anchor line.
+# Each absence-based gap anchors to the first steps/script line in the job.
+# ---------------------------------------------------------------------------
+seeded_gaps:
+  # --- GitHub Actions: Node service insecure ---
+  - file: github_actions/github_actions_node_service_insecure.yml
+    control_id: sh-001
+    category: secrets_hygiene
+    severity: critical
+    expected_status: missing
+    expected_anchor_line: 20
+    rationale: Hardcoded DEPLOY_TOKEN value in env block — credential-shaped literal trips secret detector.
+  - file: github_actions/github_actions_node_service_insecure.yml
+    control_id: lp-001
+    category: least_privilege
+    severity: high
+    expected_status: missing
+    expected_anchor_line: 9
+    rationale: permissions.contents set to write instead of the minimum required read.
+  - file: github_actions/github_actions_node_service_insecure.yml
+    control_id: sci-001
+    category: supply_chain_integrity
+    severity: high
+    expected_status: missing
+    expected_anchor_line: 11
+    rationale: actions/checkout pinned by mutable tag v3 instead of a full commit SHA.
+  - file: github_actions/github_actions_node_service_insecure.yml
+    control_id: sh-002
+    category: secrets_hygiene
+    severity: high
+    expected_status: missing
+    expected_anchor_line: 10
+    rationale: No gitleaks or trufflehog step — secret scanning tool absent from pipeline.
+  - file: github_actions/github_actions_node_service_insecure.yml
+    control_id: as-001
+    category: artifact_signing
+    severity: high
+    expected_status: missing
+    expected_anchor_line: 10
+    rationale: No cosign or sigstore signing step — artifact signing absent.
+  - file: github_actions/github_actions_node_service_insecure.yml
+    control_id: sa-001
+    category: static_analysis
+    severity: high
+    expected_status: missing
+    expected_anchor_line: 10
+    rationale: No semgrep or CodeQL step — SAST absent.
+  - file: github_actions/github_actions_node_service_insecure.yml
+    control_id: ds-001
+    category: dependency_scanning
+    severity: high
+    expected_status: missing
+    expected_anchor_line: 10
+    rationale: No trivy or grype step — dependency/SCA scanning absent.
+  - file: github_actions/github_actions_node_service_insecure.yml
+    control_id: iac-001
+    category: iac_misconfiguration
+    severity: high
+    expected_status: missing
+    expected_anchor_line: 10
+    rationale: No checkov or tfsec step — IaC misconfiguration scanning absent.
+  - file: github_actions/github_actions_node_service_insecure.yml
+    control_id: sbom-001
+    category: sbom
+    severity: medium
+    expected_status: missing
+    expected_anchor_line: 10
+    rationale: No syft or cyclonedx step — SBOM generation absent.
+  - file: github_actions/github_actions_node_service_insecure.yml
+    control_id: ag-001
+    category: approval_gates
+    severity: high
+    expected_status: missing
+    expected_anchor_line: 5
+    rationale: No environment protection rule — deployment approval gate absent.
+
+  # --- GitHub Actions: Node service partial ---
+  - file: github_actions/github_actions_node_service_partial.yml
+    control_id: sh-001
+    category: secrets_hygiene
+    severity: critical
+    expected_status: missing
+    expected_anchor_line: 29
+    rationale: Hardcoded API_SECRET in env block despite other controls being present.
+  - file: github_actions/github_actions_node_service_partial.yml
+    control_id: as-001
+    category: artifact_signing
+    severity: high
+    expected_status: missing
+    expected_anchor_line: 21
+    rationale: No cosign signing step in build job.
+  - file: github_actions/github_actions_node_service_partial.yml
+    control_id: sbom-001
+    category: sbom
+    severity: medium
+    expected_status: missing
+    expected_anchor_line: 21
+    rationale: No syft step — SBOM generation absent despite other scans being present.
+  - file: github_actions/github_actions_node_service_partial.yml
+    control_id: ag-001
+    category: approval_gates
+    severity: high
+    expected_status: missing
+    expected_anchor_line: 5
+    rationale: No environment protection rule in any job.
+
+  # --- GitHub Actions: Python API insecure ---
+  - file: github_actions/github_actions_python_api_insecure.yml
+    control_id: sh-001
+    category: secrets_hygiene
+    severity: critical
+    expected_status: missing
+    expected_anchor_line: 23
+    rationale: Hardcoded DB_PASSWORD in env block.
+  - file: github_actions/github_actions_python_api_insecure.yml
+    control_id: lp-001
+    category: least_privilege
+    severity: high
+    expected_status: missing
+    expected_anchor_line: 9
+    rationale: permissions.contents set to write — overly permissive for a validation job.
+  - file: github_actions/github_actions_python_api_insecure.yml
+    control_id: sci-001
+    category: supply_chain_integrity
+    severity: high
+    expected_status: missing
+    expected_anchor_line: 11
+    rationale: actions/checkout pinned by mutable tag v3 — SHA pin required.
+  - file: github_actions/github_actions_python_api_insecure.yml
+    control_id: sh-002
+    category: secrets_hygiene
+    severity: high
+    expected_status: missing
+    expected_anchor_line: 10
+    rationale: No secret scanning step in pipeline.
+  - file: github_actions/github_actions_python_api_insecure.yml
+    control_id: sa-001
+    category: static_analysis
+    severity: high
+    expected_status: missing
+    expected_anchor_line: 10
+    rationale: No SAST step in pipeline.
+  - file: github_actions/github_actions_python_api_insecure.yml
+    control_id: as-001
+    category: artifact_signing
+    severity: high
+    expected_status: missing
+    expected_anchor_line: 10
+    rationale: No artifact signing step.
+  - file: github_actions/github_actions_python_api_insecure.yml
+    control_id: ds-001
+    category: dependency_scanning
+    severity: high
+    expected_status: missing
+    expected_anchor_line: 10
+    rationale: No dependency scanning step.
+  - file: github_actions/github_actions_python_api_insecure.yml
+    control_id: iac-001
+    category: iac_misconfiguration
+    severity: high
+    expected_status: missing
+    expected_anchor_line: 10
+    rationale: No IaC scanning step.
+  - file: github_actions/github_actions_python_api_insecure.yml
+    control_id: sbom-001
+    category: sbom
+    severity: medium
+    expected_status: missing
+    expected_anchor_line: 10
+    rationale: No SBOM generation step.
+  - file: github_actions/github_actions_python_api_insecure.yml
+    control_id: ag-001
+    category: approval_gates
+    severity: high
+    expected_status: missing
+    expected_anchor_line: 5
+    rationale: No environment protection rule — using pull_request_target without approval gate.
+
+  # --- GitHub Actions: Python API partial ---
+  - file: github_actions/github_actions_python_api_partial.yml
+    control_id: sh-001
+    category: secrets_hygiene
+    severity: critical
+    expected_status: missing
+    expected_anchor_line: 30
+    rationale: Hardcoded SERVICE_KEY despite secret scanning being present.
+  - file: github_actions/github_actions_python_api_partial.yml
+    control_id: sa-001
+    category: static_analysis
+    severity: high
+    expected_status: missing
+    expected_anchor_line: 21
+    rationale: No SAST step in build job.
+  - file: github_actions/github_actions_python_api_partial.yml
+    control_id: as-001
+    category: artifact_signing
+    severity: high
+    expected_status: missing
+    expected_anchor_line: 21
+    rationale: No artifact signing step.
+  - file: github_actions/github_actions_python_api_partial.yml
+    control_id: iac-001
+    category: iac_misconfiguration
+    severity: high
+    expected_status: missing
+    expected_anchor_line: 21
+    rationale: No IaC scanning step.
+  - file: github_actions/github_actions_python_api_partial.yml
+    control_id: sbom-001
+    category: sbom
+    severity: medium
+    expected_status: missing
+    expected_anchor_line: 21
+    rationale: No SBOM generation step.
+  - file: github_actions/github_actions_python_api_partial.yml
+    control_id: ag-001
+    category: approval_gates
+    severity: high
+    expected_status: missing
+    expected_anchor_line: 5
+    rationale: No environment protection rule.
+
+  # --- GitLab CI: Java service insecure ---
+  - file: gitlab_ci/gitlab_ci_java_service_insecure.yml
+    control_id: sh-001
+    category: secrets_hygiene
+    severity: critical
+    expected_status: missing
+    expected_anchor_line: 8
+    rationale: Hardcoded DB_PASS in global variables block.
+  - file: gitlab_ci/gitlab_ci_java_service_insecure.yml
+    control_id: sh-002
+    category: secrets_hygiene
+    severity: high
+    expected_status: missing
+    expected_anchor_line: 12
+    rationale: No gitleaks or secret scanning step.
+  - file: gitlab_ci/gitlab_ci_java_service_insecure.yml
+    control_id: sa-001
+    category: static_analysis
+    severity: high
+    expected_status: missing
+    expected_anchor_line: 12
+    rationale: No SAST step.
+  - file: gitlab_ci/gitlab_ci_java_service_insecure.yml
+    control_id: ds-001
+    category: dependency_scanning
+    severity: high
+    expected_status: missing
+    expected_anchor_line: 12
+    rationale: No dependency/container scanning step.
+  - file: gitlab_ci/gitlab_ci_java_service_insecure.yml
+    control_id: as-001
+    category: artifact_signing
+    severity: high
+    expected_status: missing
+    expected_anchor_line: 12
+    rationale: No artifact signing step.
+  - file: gitlab_ci/gitlab_ci_java_service_insecure.yml
+    control_id: sbom-001
+    category: sbom
+    severity: medium
+    expected_status: missing
+    expected_anchor_line: 12
+    rationale: No SBOM generation step.
+  - file: gitlab_ci/gitlab_ci_java_service_insecure.yml
+    control_id: ag-001
+    category: approval_gates
+    severity: high
+    expected_status: missing
+    expected_anchor_line: 1
+    rationale: No when:manual or environment protection rule.
+
+  # --- GitLab CI: Java service partial ---
+  - file: gitlab_ci/gitlab_ci_java_service_partial.yml
+    control_id: sh-001
+    category: secrets_hygiene
+    severity: critical
+    expected_status: missing
+    expected_anchor_line: 23
+    rationale: Hardcoded DEPLOY_KEY in job-level variables despite other scans being present.
+  - file: gitlab_ci/gitlab_ci_java_service_partial.yml
+    control_id: as-001
+    category: artifact_signing
+    severity: high
+    expected_status: missing
+    expected_anchor_line: 18
+    rationale: No artifact signing step in build job.
+  - file: gitlab_ci/gitlab_ci_java_service_partial.yml
+    control_id: sbom-001
+    category: sbom
+    severity: medium
+    expected_status: missing
+    expected_anchor_line: 18
+    rationale: No SBOM generation step.
+  - file: gitlab_ci/gitlab_ci_java_service_partial.yml
+    control_id: iac-001
+    category: iac_misconfiguration
+    severity: high
+    expected_status: missing
+    expected_anchor_line: 18
+    rationale: No IaC scanning step.
+  - file: gitlab_ci/gitlab_ci_java_service_partial.yml
+    control_id: ag-001
+    category: approval_gates
+    severity: high
+    expected_status: missing
+    expected_anchor_line: 1
+    rationale: No when:manual in deploy job.
+
+  # --- GitLab CI: Python service insecure ---
+  - file: gitlab_ci/gitlab_ci_python_service_insecure.yml
+    control_id: sh-001
+    category: secrets_hygiene
+    severity: critical
+    expected_status: missing
+    expected_anchor_line: 8
+    rationale: Hardcoded API_TOKEN in global variables block.
+  - file: gitlab_ci/gitlab_ci_python_service_insecure.yml
+    control_id: sh-002
+    category: secrets_hygiene
+    severity: high
+    expected_status: missing
+    expected_anchor_line: 12
+    rationale: No secret scanning step.
+  - file: gitlab_ci/gitlab_ci_python_service_insecure.yml
+    control_id: sa-001
+    category: static_analysis
+    severity: high
+    expected_status: missing
+    expected_anchor_line: 12
+    rationale: No SAST step.
+  - file: gitlab_ci/gitlab_ci_python_service_insecure.yml
+    control_id: as-001
+    category: artifact_signing
+    severity: high
+    expected_status: missing
+    expected_anchor_line: 12
+    rationale: No artifact signing step.
+  - file: gitlab_ci/gitlab_ci_python_service_insecure.yml
+    control_id: sbom-001
+    category: sbom
+    severity: medium
+    expected_status: missing
+    expected_anchor_line: 12
+    rationale: No SBOM generation step.
+  - file: gitlab_ci/gitlab_ci_python_service_insecure.yml
+    control_id: ag-001
+    category: approval_gates
+    severity: high
+    expected_status: missing
+    expected_anchor_line: 1
+    rationale: No when:manual or environment gate.
+
+  # --- Jenkins: Java service insecure ---
+  - file: jenkins/jenkins_java_service_insecure.groovy
+    control_id: sh-001
+    category: secrets_hygiene
+    severity: critical
+    expected_status: missing
+    expected_anchor_line: 26
+    rationale: Hardcoded db_password value in post.always shell command.
+  - file: jenkins/jenkins_java_service_insecure.groovy
+    control_id: sh-002
+    category: secrets_hygiene
+    severity: high
+    expected_status: missing
+    expected_anchor_line: 5
+    rationale: No gitleaks or secret scanning step in any stage.
+  - file: jenkins/jenkins_java_service_insecure.groovy
+    control_id: sa-001
+    category: static_analysis
+    severity: high
+    expected_status: missing
+    expected_anchor_line: 5
+    rationale: No SAST step in pipeline.
+  - file: jenkins/jenkins_java_service_insecure.groovy
+    control_id: ds-001
+    category: dependency_scanning
+    severity: high
+    expected_status: missing
+    expected_anchor_line: 5
+    rationale: No dependency scanning step.
+  - file: jenkins/jenkins_java_service_insecure.groovy
+    control_id: as-001
+    category: artifact_signing
+    severity: high
+    expected_status: missing
+    expected_anchor_line: 5
+    rationale: No artifact signing step.
+  - file: jenkins/jenkins_java_service_insecure.groovy
+    control_id: sbom-001
+    category: sbom
+    severity: medium
+    expected_status: missing
+    expected_anchor_line: 5
+    rationale: No SBOM generation step.
+  - file: jenkins/jenkins_java_service_insecure.groovy
+    control_id: ag-001
+    category: approval_gates
+    severity: high
+    expected_status: missing
+    expected_anchor_line: 3
+    rationale: No input step or manual approval gate in deploy stage.
+
+  # --- Jenkins: Java service partial ---
+  - file: jenkins/jenkins_java_service_partial.groovy
+    control_id: sh-001
+    category: secrets_hygiene
+    severity: critical
+    expected_status: missing
+    expected_anchor_line: 21
+    rationale: Hardcoded SERVICE_KEY in deploy stage shell command despite scans being present.
+  - file: jenkins/jenkins_java_service_partial.groovy
+    control_id: as-001
+    category: artifact_signing
+    severity: high
+    expected_status: missing
+    expected_anchor_line: 12
+    rationale: No artifact signing step in build stage.
+  - file: jenkins/jenkins_java_service_partial.groovy
+    control_id: iac-001
+    category: iac_misconfiguration
+    severity: high
+    expected_status: missing
+    expected_anchor_line: 12
+    rationale: No IaC scanning step.
+  - file: jenkins/jenkins_java_service_partial.groovy
+    control_id: sbom-001
+    category: sbom
+    severity: medium
+    expected_status: missing
+    expected_anchor_line: 12
+    rationale: No SBOM generation step.
+  - file: jenkins/jenkins_java_service_partial.groovy
+    control_id: ag-001
+    category: approval_gates
+    severity: high
+    expected_status: missing
+    expected_anchor_line: 3
+    rationale: No input step or manual approval gate.
+
+# ---------------------------------------------------------------------------
+# Negative expectations — controls that MUST evaluate Present
+# (at least 20 required; we declare 48 across 4 hardened files)
+# ---------------------------------------------------------------------------
+negative_expectations:
+  # GitHub Actions: Node service hardened (13 controls)
+  - file: github_actions/github_actions_node_service_hardened.yml
+    control_id: sh-002
+    category: secrets_hygiene
+    rationale: gitleaks step present at line 13.
+  - file: github_actions/github_actions_node_service_hardened.yml
+    control_id: sa-001
+    category: static_analysis
+    rationale: semgrep step present at line 15.
+  - file: github_actions/github_actions_node_service_hardened.yml
+    control_id: ds-001
+    category: dependency_scanning
+    rationale: trivy fs step present at line 17.
+  - file: github_actions/github_actions_node_service_hardened.yml
+    control_id: ds-002
+    category: dependency_scanning
+    rationale: trivy image step present at line 19.
+  - file: github_actions/github_actions_node_service_hardened.yml
+    control_id: iac-001
+    category: iac_misconfiguration
+    rationale: checkov step present at line 21.
+  - file: github_actions/github_actions_node_service_hardened.yml
+    control_id: lp-001
+    category: least_privilege
+    rationale: permissions.contents read at line 9.
+  - file: github_actions/github_actions_node_service_hardened.yml
+    control_id: lp-002
+    category: least_privilege
+    rationale: id-token:write (OIDC) at line 27.
+  - file: github_actions/github_actions_node_service_hardened.yml
+    control_id: sci-001
+    category: supply_chain_integrity
+    rationale: actions/checkout pinned by full SHA at line 11.
+  - file: github_actions/github_actions_node_service_hardened.yml
+    control_id: sci-002
+    category: supply_chain_integrity
+    rationale: aws-actions/configure-aws-credentials pinned by SHA at line 33.
+  - file: github_actions/github_actions_node_service_hardened.yml
+    control_id: as-001
+    category: artifact_signing
+    rationale: cosign sign step at line 37.
+  - file: github_actions/github_actions_node_service_hardened.yml
+    control_id: as-002
+    category: artifact_signing
+    rationale: cosign attest (provenance) step at line 39.
+  - file: github_actions/github_actions_node_service_hardened.yml
+    control_id: sbom-001
+    category: sbom
+    rationale: syft SBOM generation step at line 41.
+  - file: github_actions/github_actions_node_service_hardened.yml
+    control_id: ag-001
+    category: approval_gates
+    rationale: environment:production protection rule at line 29.
+
+  # GitHub Actions: Python API hardened (13 controls)
+  - file: github_actions/github_actions_python_api_hardened.yml
+    control_id: sh-002
+    category: secrets_hygiene
+    rationale: gitleaks step present at line 13.
+  - file: github_actions/github_actions_python_api_hardened.yml
+    control_id: sa-001
+    category: static_analysis
+    rationale: semgrep step present at line 15.
+  - file: github_actions/github_actions_python_api_hardened.yml
+    control_id: ds-001
+    category: dependency_scanning
+    rationale: trivy fs step present at line 17.
+  - file: github_actions/github_actions_python_api_hardened.yml
+    control_id: ds-002
+    category: dependency_scanning
+    rationale: trivy image step present at line 19.
+  - file: github_actions/github_actions_python_api_hardened.yml
+    control_id: iac-001
+    category: iac_misconfiguration
+    rationale: checkov step present at line 21.
+  - file: github_actions/github_actions_python_api_hardened.yml
+    control_id: lp-001
+    category: least_privilege
+    rationale: permissions.contents read at line 9.
+  - file: github_actions/github_actions_python_api_hardened.yml
+    control_id: lp-002
+    category: least_privilege
+    rationale: id-token:write (OIDC) at line 27.
+  - file: github_actions/github_actions_python_api_hardened.yml
+    control_id: sci-001
+    category: supply_chain_integrity
+    rationale: actions/checkout pinned by full SHA at line 11.
+  - file: github_actions/github_actions_python_api_hardened.yml
+    control_id: sci-002
+    category: supply_chain_integrity
+    rationale: aws-actions/configure-aws-credentials pinned by SHA at line 33.
+  - file: github_actions/github_actions_python_api_hardened.yml
+    control_id: as-001
+    category: artifact_signing
+    rationale: cosign sign step at line 37.
+  - file: github_actions/github_actions_python_api_hardened.yml
+    control_id: as-002
+    category: artifact_signing
+    rationale: cosign attest step at line 39.
+  - file: github_actions/github_actions_python_api_hardened.yml
+    control_id: sbom-001
+    category: sbom
+    rationale: syft SBOM generation step at line 41.
+  - file: github_actions/github_actions_python_api_hardened.yml
+    control_id: ag-001
+    category: approval_gates
+    rationale: environment:production protection rule at line 29.
+
+  # GitLab CI: Java service hardened (10 controls)
+  - file: gitlab_ci/gitlab_ci_java_service_hardened.yml
+    control_id: sh-002
+    category: secrets_hygiene
+    rationale: gitleaks step at line 13.
+  - file: gitlab_ci/gitlab_ci_java_service_hardened.yml
+    control_id: sa-001
+    category: static_analysis
+    rationale: semgrep step at line 14.
+  - file: gitlab_ci/gitlab_ci_java_service_hardened.yml
+    control_id: ds-001
+    category: dependency_scanning
+    rationale: trivy fs step at line 15.
+  - file: gitlab_ci/gitlab_ci_java_service_hardened.yml
+    control_id: ds-002
+    category: dependency_scanning
+    rationale: trivy image step at line 16.
+  - file: gitlab_ci/gitlab_ci_java_service_hardened.yml
+    control_id: iac-001
+    category: iac_misconfiguration
+    rationale: checkov step at line 17.
+  - file: gitlab_ci/gitlab_ci_java_service_hardened.yml
+    control_id: sbom-001
+    category: sbom
+    rationale: syft step at line 24.
+  - file: gitlab_ci/gitlab_ci_java_service_hardened.yml
+    control_id: lp-002
+    category: least_privilege
+    rationale: id_tokens OIDC block at line 29 — keyless signing via SIGSTORE_ID_TOKEN.
+  - file: gitlab_ci/gitlab_ci_java_service_hardened.yml
+    control_id: as-001
+    category: artifact_signing
+    rationale: cosign sign step at line 33.
+  - file: gitlab_ci/gitlab_ci_java_service_hardened.yml
+    control_id: as-002
+    category: artifact_signing
+    rationale: cosign attest step at line 34.
+  - file: gitlab_ci/gitlab_ci_java_service_hardened.yml
+    control_id: ag-001
+    category: approval_gates
+    rationale: when:manual in deploy-job at line 38.
+
+  # Jenkins: Java service hardened (12 controls)
+  - file: jenkins/jenkins_java_service_hardened.groovy
+    control_id: lp-001
+    category: least_privilege
+    rationale: serviceAccountName:jenkins-sa-restricted at line 8.
+  - file: jenkins/jenkins_java_service_hardened.groovy
+    control_id: sci-001
+    category: supply_chain_integrity
+    rationale: Maven agent image pinned by SHA256 digest at line 11.
+  - file: jenkins/jenkins_java_service_hardened.groovy
+    control_id: sh-002
+    category: secrets_hygiene
+    rationale: gitleaks step at line 20.
+  - file: jenkins/jenkins_java_service_hardened.groovy
+    control_id: sa-001
+    category: static_analysis
+    rationale: semgrep step at line 21.
+  - file: jenkins/jenkins_java_service_hardened.groovy
+    control_id: ds-001
+    category: dependency_scanning
+    rationale: trivy fs step at line 22.
+  - file: jenkins/jenkins_java_service_hardened.groovy
+    control_id: ds-002
+    category: dependency_scanning
+    rationale: trivy image step at line 23.
+  - file: jenkins/jenkins_java_service_hardened.groovy
+    control_id: iac-001
+    category: iac_misconfiguration
+    rationale: checkov step at line 24.
+  - file: jenkins/jenkins_java_service_hardened.groovy
+    control_id: sbom-001
+    category: sbom
+    rationale: syft step at line 31.
+  - file: jenkins/jenkins_java_service_hardened.groovy
+    control_id: as-001
+    category: artifact_signing
+    rationale: cosign sign step at line 37.
+  - file: jenkins/jenkins_java_service_hardened.groovy
+    control_id: as-002
+    category: artifact_signing
+    rationale: cosign attest step at line 38.
+  - file: jenkins/jenkins_java_service_hardened.groovy
+    control_id: ag-001
+    category: approval_gates
+    rationale: input block with approval message at line 43.
+  - file: jenkins/jenkins_java_service_hardened.groovy
+    control_id: lp-002
+    category: least_privilege
+    rationale: AmazonWebServicesCredentialsBinding with OIDC role binding at line 49.
+
+# ---------------------------------------------------------------------------
+# Not Assessable fragments — 3 constructs that cannot be statically analysed
+# ---------------------------------------------------------------------------
+unassessable_fragments:
+  - file: github_actions/github_actions_python_api_insecure.yml
+    reason: Unresolvable composite action reference (./.github/actions/custom-composite-check) — content not available for static analysis.
+    line_start: 18
+    line_end: 18
+  - file: gitlab_ci/gitlab_ci_remote_include_na.yml
+    reason: include:remote points to a synthetic unreachable URL — imported job definitions cannot be statically assessed.
+    line_start: 5
+    line_end: 6
+  - file: jenkins/jenkins_scripted_island.groovy
+    reason: Declarative pipeline scripted script block — Groovy scripted syntax resists static control-flow analysis.
+    line_start: 13
+    line_end: 22

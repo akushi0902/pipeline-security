@@ -1,0 +1,26 @@
+# Ground truth for GitLab CI partial variant.
+# Secrets scanning and SAST are present. Still missing signing, SBOM, approval gate.
+format: gitlab_ci
+variant: partial
+description: >
+  GitLab CI pipeline with secrets scanning, SAST, and dependency scanning added,
+  but still missing artifact signing, SBOM generation, approval gate,
+  and containing a hardcoded database password.
+seeded_gaps:
+  - control_id: sh-001
+    expected_line: 25
+    severity: critical
+    description: Hardcoded PASSWORD in deploy job script
+  - control_id: as-001
+    expected_line: 11
+    severity: high
+    description: No artifact signing step (cosign/sigstore absent)
+  - control_id: sbom-001
+    expected_line: 11
+    severity: medium
+    description: No SBOM generation step (syft/cyclonedx absent)
+  - control_id: ag-001
+    expected_line: 1
+    severity: high
+    description: No manual approval gate (when:manual absent)
+unassessable_fragments: []

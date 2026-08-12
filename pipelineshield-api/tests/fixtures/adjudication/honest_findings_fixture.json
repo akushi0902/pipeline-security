@@ -1,0 +1,35 @@
+{
+  "schema_version": "1.0",
+  "description": "Hand-built finding fixtures for unit tests — all anchors resolve correctly.",
+  "definition_lines": [
+    "name: test-workflow",
+    "on: [push]",
+    "",
+    "jobs:",
+    "  build:",
+    "    runs-on: ubuntu-latest",
+    "    steps:",
+    "      - uses: actions/checkout@v3",
+    "      - name: Deploy",
+    "        env:",
+    "          API_KEY: EXAMPLE_SECRET_VALUE_FOR_TESTING_PURPOSES_ONLY_ABC123"
+  ],
+  "findings": [
+    {
+      "control_id": "sh-001",
+      "start_line": 11,
+      "anchor_text": "          API_KEY: EXAMPLE_SECRET_VALUE_FOR_TESTING_PURPOSES_ONLY_ABC123",
+      "rule_id": "sh-001/hardcoded-secret",
+      "detail": "Potential hardcoded secret at line 11",
+      "source": "deterministic"
+    },
+    {
+      "control_id": "sci-001",
+      "start_line": 8,
+      "anchor_text": "      - uses: actions/checkout@v3",
+      "rule_id": "sci-001/unpinned-action",
+      "detail": "Unpinned action reference at line 8",
+      "source": "deterministic"
+    }
+  ]
+}

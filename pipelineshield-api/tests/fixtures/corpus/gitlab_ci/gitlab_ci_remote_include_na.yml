@@ -1,0 +1,16 @@
+# GitLab CI — Remote include (Not Assessable fixture)
+# The include:remote below points to a synthetic unreachable URL.
+# The included file's content is unknown and cannot be statically
+# assessed — all controls within its scope are Not Assessable.
+include:
+  - remote: 'https://synthetic-unreachable.example.invalid/security-base.yml'
+
+stages:
+  - build
+
+local-job:
+  stage: build
+  script:
+    - echo "This job is defined locally and is assessable"
+    - docker build -t myapp:latest .
+    - docker push myapp:latest

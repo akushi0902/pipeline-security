@@ -1,0 +1,26 @@
+# Ground truth for Jenkins partial variant.
+# Security scanning stages present; signing, SBOM, approval gate still missing.
+format: jenkins
+variant: partial
+description: >
+  Declarative Jenkinsfile with secrets scanning, SAST, and dependency scanning
+  added, but still missing artifact signing, SBOM generation, approval gate,
+  and containing a hardcoded service token.
+seeded_gaps:
+  - control_id: sh-001
+    expected_line: 26
+    severity: critical
+    description: Hardcoded token value in post-always step
+  - control_id: as-001
+    expected_line: 3
+    severity: high
+    description: No artifact signing step (cosign/sigstore absent)
+  - control_id: sbom-001
+    expected_line: 3
+    severity: medium
+    description: No SBOM generation step (syft/cyclonedx absent)
+  - control_id: ag-001
+    expected_line: 1
+    severity: high
+    description: No manual approval gate (input {} absent)
+unassessable_fragments: []

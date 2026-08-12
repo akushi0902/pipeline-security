@@ -1,0 +1,22 @@
+name: Insecure CI Pipeline
+on:
+  push:
+    branches: [main]
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v3
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+      - name: Configure secrets
+        env:
+          API_KEY: hardcoded_secret_value_here
+          DB_PASSWORD: mysupersecretpassword123
+        run: echo "configuring"
+      - name: Build
+        run: npm run build
+      - name: Push image
+        run: docker push myimage:latest

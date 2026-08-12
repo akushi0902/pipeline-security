@@ -1,0 +1,24 @@
+name: Python API CI — Insecure
+on:
+  pull_request_target:
+    branches: [main]
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+      - name: Validate PR
+        run: |
+          echo "Processing: ${{ github.event.pull_request.title }}"
+          pip install -r requirements.txt
+      - uses: ./.github/actions/custom-composite-check
+      - name: Test
+        run: python -m pytest
+      - name: Deploy
+        env:
+          DB_PASSWORD: EXAMPLE_hardcoded_db_password_mno789_do_not_use
+        run: ./deploy.py

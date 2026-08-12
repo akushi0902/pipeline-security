@@ -1,0 +1,29 @@
+# Ground truth for Jenkins insecure variant.
+# Jenkins declarative pipeline with missing security controls and hardcoded credential.
+format: jenkins
+variant: insecure
+description: >
+  Declarative Jenkinsfile with no secrets scanning, no signing, no SBOM,
+  no approval gate, and a hardcoded password in a post-build step.
+seeded_gaps:
+  - control_id: sh-001
+    expected_line: 21
+    severity: critical
+    description: Hardcoded password value in post-always step
+  - control_id: sh-002
+    expected_line: 3
+    severity: high
+    description: No secrets scanning tool (gitleaks/trufflehog absent)
+  - control_id: as-001
+    expected_line: 3
+    severity: high
+    description: No artifact signing step (cosign/sigstore absent)
+  - control_id: sbom-001
+    expected_line: 3
+    severity: medium
+    description: No SBOM generation step (syft/cyclonedx absent)
+  - control_id: ag-001
+    expected_line: 1
+    severity: high
+    description: No manual approval gate (input {} absent)
+unassessable_fragments: []
