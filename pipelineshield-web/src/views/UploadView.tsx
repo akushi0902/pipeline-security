@@ -44,7 +44,8 @@ export function UploadView() {
 
   const isIdle = viewState.stage === 'idle';
   const isSubmitting = viewState.stage === 'submitting';
-  const isAwaitingConfirmation = viewState.stage === 'awaiting-confirmation';
+  const isAwaitingConfirmation =
+    viewState.stage === 'awaiting-confirmation';
   const isDone = viewState.stage === 'done';
 
   const canSubmit =
@@ -66,6 +67,7 @@ export function UploadView() {
 
   const handleTextChange = (text: string) => {
     setSource({ kind: 'text', content: text });
+
     if (isIdle && viewState.inputError) {
       setViewState({ stage: 'idle' });
     }
@@ -77,10 +79,13 @@ export function UploadView() {
     // Client-side size validation (UX only; server revalidates authoritatively)
     if (source.kind === 'text') {
       const byteLen = new TextEncoder().encode(source.content).length;
+
       if (byteLen > PAYLOAD_MAX_BYTES) {
         setViewState({
           stage: 'idle',
-          inputError: `Content exceeds 512 KB (${(byteLen / 1024).toFixed(1)} KB). The server revalidates authoritatively.`,
+          inputError: `Content exceeds 512 KB (${(byteLen / 1024).toFixed(
+            1,
+          )} KB). The server revalidates authoritatively.`,
         });
         return;
       }
@@ -111,16 +116,21 @@ export function UploadView() {
       return;
     }
 
-    setViewState({ stage: 'done', result: result.data });
+    setViewState({
+      stage: 'done',
+      result: result.data,
+    });
   };
 
   const handleFormatConfirm = async (format: CiFormat) => {
     if (viewState.stage !== 'awaiting-confirmation') return;
+
     const { analysisId } = viewState;
 
     setViewState({ stage: 'submitting' });
 
     const result = await confirmFormat(analysisId, format);
+
     if (!result.ok) {
       setViewState({ stage: 'error', error: result.error });
       return;
@@ -155,9 +165,13 @@ export function UploadView() {
       data-testid="upload-view"
     >
       <header className="mb-6">
-        <h1 className="text-2xl font-bold text-text-primary">Analyse pipeline definition</h1>
+        <h1 className="text-2xl font-bold text-text-primary">
+          Analyse pipeline definition
+        </h1>
+
         <p className="mt-1 text-sm text-text-secondary">
-          Upload or paste a CI/CD pipeline definition to run a security posture analysis.
+          Upload or paste a CI/CD pipeline definition to run a security posture
+          analysis.
         </p>
       </header>
 
@@ -215,6 +229,7 @@ export function UploadView() {
                     onValidationError={handleFileError}
                     disabled={isSubmitting}
                   />
+
                   {selectedFileName != null && (
                     <p className="mt-2 flex items-center gap-1.5 text-sm text-text-secondary">
                       <span aria-hidden="true">📄</span>
@@ -242,11 +257,12 @@ export function UploadView() {
             </div>
 
             {/* Inline input error */}
-            {viewState.stage === 'idle' && viewState.inputError != null && (
-              <p role="alert" className="text-sm text-error">
-                {viewState.inputError}
-              </p>
-            )}
+            {viewState.stage === 'idle' &&
+              viewState.inputError != null && (
+                <p role="alert" className="text-sm text-error">
+                  {viewState.inputError}
+                </p>
+              )}
 
             {/* Submit button */}
             <button
@@ -270,14 +286,15 @@ export function UploadView() {
         <StageProgressPanel active={isSubmitting} />
 
         {/* Format confirmation dialog */}
-        {isAwaitingConfirmation && viewState.stage === 'awaiting-confirmation' && (
-          <FormatConfirmationDialog
-            open={true}
-            detectedFormat={viewState.detectedFormat}
-            onConfirm={handleFormatConfirm}
-            onReset={handleReset}
-          />
-        )}
+        {isAwaitingConfirmation &&
+          viewState.stage === 'awaiting-confirmation' && (
+            <FormatConfirmationDialog
+              open={true}
+              detectedFormat={viewState.detectedFormat}
+              onConfirm={handleFormatConfirm}
+              onReset={handleReset}
+            />
+          )}
 
         {/* Success state */}
         {isDone && viewState.stage === 'done' && (
@@ -287,30 +304,51 @@ export function UploadView() {
             className="rounded-lg border border-success bg-success-surface p-5"
           >
             <div className="flex items-start gap-3">
-              <span aria-hidden="true" className="mt-0.5 text-success">
-                <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+              <span
+                aria-hidden="true"
+                className="mt-0.5 text-success"
+              >
+                <svg
+                  className="h-5 w-5"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
+                  />
                 </svg>
               </span>
+
               <div>
-                <p className="font-medium text-success">Analysis complete</p>
+                <p className="font-medium text-success">
+                  Analysis complete
+                </p>
+
+                {/* Keep the success summary focused on the analysis result.
+                    The advisory disclaimer is rendered once in the footer
+                    below to avoid duplicate messaging. */}
                 <p className="mt-1 text-sm text-text-secondary">
                   Format:{' '}
                   <strong className="text-text-primary">
                     {viewState.result.detected_format}
                   </strong>
-                  {viewState.result.advisory_disclaimer && (
-                    <> &middot; {viewState.result.advisory_disclaimer}</>
-                  )}
                 </p>
+
                 {viewState.result.analysis_id && (
                   <p className="mt-1 text-xs text-text-secondary">
                     Analysis ID:{' '}
-                    <code className="font-mono">{viewState.result.analysis_id}</code>
+                    <code className="font-mono">
+                      {viewState.result.analysis_id}
+                    </code>
                   </p>
                 )}
               </div>
             </div>
+
             <button
               type="button"
               onClick={handleReset}
@@ -323,19 +361,27 @@ export function UploadView() {
 
         {/* Error state */}
         {viewState.stage === 'error' && (
-          <ErrorPanel error={viewState.error} onRetry={handleReset} />
+          <ErrorPanel
+            error={viewState.error}
+            onRetry={handleReset}
+          />
         )}
       </div>
 
       {/* Advisory disclaimer */}
-      {isDone && viewState.stage === 'done' && viewState.result.advisory_disclaimer && (
-        <footer className="mt-8 rounded border border-border bg-surface-raised p-4">
-          <p className="text-xs text-text-secondary">
-            <strong>Advisory:</strong>{' '}
-            <span>{viewState.result.advisory_disclaimer}</span>
-          </p>
-        </footer>
-      )}
+      {isDone &&
+        viewState.stage === 'done' &&
+        viewState.result.advisory_disclaimer && (
+          <footer
+            aria-label="Advisory disclaimer"
+            className="mt-8 rounded border border-border bg-surface-raised p-4"
+          >
+            <p className="text-xs text-text-secondary">
+              <strong>Advisory:</strong>{' '}
+              <span>{viewState.result.advisory_disclaimer}</span>
+            </p>
+          </footer>
+        )}
     </div>
   );
 }
